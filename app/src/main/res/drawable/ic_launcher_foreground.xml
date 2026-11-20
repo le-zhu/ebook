@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Closed rounded-square notebook: left spine strip -->
+    <path
+        android:fillColor="#0169CC"
+        android:pathData="M38,29 L39.5,29 L39.5,79 L38,79 C34.13,79 31,75.87 31,72 L31,36 C31,32.13 34.13,29 38,29 Z" />
+
+    <!-- Closed rounded-square notebook: main front cover with minimalist bookmark cutout -->
+    <path
+        android:fillColor="#0169CC"
+        android:pathData="M42.5,29 L57,29 L57,45.5 L61.25,41.8 L65.5,45.5 L65.5,29 L69,29 C73.42,29 77,32.58 77,37 L77,71 C77,75.42 73.42,79 69,79 L42.5,79 Z" />
+</vector>

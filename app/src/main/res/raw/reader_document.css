@@ -1,0 +1,22 @@
+/* Readium sets this flag on reflowable documents while publisher styles are overridden. */
+:root[style*="readium-advanced-on"],
+:root[style*="readium-advanced-on"] body,
+:root[style*="readium-advanced-on"] body :not(svg, svg *, math, math *) {
+    writing-mode: horizontal-tb !important;
+}
+
+:root[style*="readium-advanced-on"],
+:root[style*="readium-advanced-on"] :is(body, section, article, div, p, h1, h2, h3, h4, h5, h6, li, blockquote) {
+    direction: ltr !important;
+}
+
+/* Keep inline note icons within a superscript character, including when the
+   reading system overrides the EPUB's numeric img width with width: auto. */
+:root body img.epub-footnote,
+:root body a[epub\:type~="noteref"] img,
+:root body a[*|type~="noteref"] img,
+:root body a[role~="doc-noteref"] img {
+    max-width: 0.9em !important;
+    max-height: 0.9em !important;
+    object-fit: contain;
+}

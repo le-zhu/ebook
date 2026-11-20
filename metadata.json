@@ -1,0 +1,6 @@
+{
+  "name": "ebook",
+  "description": "Material 3 / Material You 原生安卓本地 EPUB 阅读器交互原型，采用面向 Readium 3.x 的可插拔架构设计。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

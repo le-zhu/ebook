@@ -1,0 +1,71 @@
+<resources>
+    <string name="app_name">ebook</string>
+
+    <!-- Bookshelf -->
+    <string name="bookshelf_title">书架</string>
+    <string name="bookshelf_import_folder">导入文件夹</string>
+    <string name="bookshelf_sort_cd">排序方式</string>
+    <string name="bookshelf_toggle_view_grid_cd">切换为网格视图</string>
+    <string name="bookshelf_toggle_view_list_cd">切换为列表视图</string>
+    <string name="bookshelf_sort_recent">最近阅读</string>
+    <string name="bookshelf_sort_title">按书名排序</string>
+    <string name="bookshelf_sort_progress">按阅读进度</string>
+    <string name="bookshelf_sort_author">按作者排序</string>
+    <string name="bookshelf_empty_title">书架空空如也</string>
+    <string name="bookshelf_empty_subtitle">点右上角的加号选择文件夹，即可导入其中及子文件夹里的 EPUB。</string>
+    <string name="bookshelf_reading_progress">已读 %1$d%%</string>
+    <string name="bookshelf_unread">未读</string>
+    <string name="bookshelf_finished">已读完</string>
+    <string name="bookshelf_imported_action_read">立即阅读</string>
+    <string name="bookshelf_removed_snackbar">已将《%1$s》移出书架</string>
+    <string name="bookshelf_undo">撤销</string>
+
+    <!-- Book Detail Sheet -->
+    <string name="book_detail_continue_reading">继续阅读</string>
+    <string name="book_detail_start_reading">开始阅读</string>
+    <string name="book_detail_remove">从书架移除</string>
+    <string name="book_detail_synopsis">内容简介</string>
+    <string name="book_detail_current_chapter">当前读至</string>
+    <string name="book_detail_publisher">出版方</string>
+
+    <!-- Reader -->
+    <string name="reader_back_cd">返回书架</string>
+    <string name="reader_toc_label">目录 / 书签</string>
+    <string name="reader_bookmark_add_cd">添加书签</string>
+    <string name="reader_bookmark_remove_cd">取消书签</string>
+    <string name="reader_prev_chapter">上一个目录项</string>
+    <string name="reader_next_chapter">下一个目录项</string>
+    <string name="reader_settings_button">排版设置</string>
+    <string name="reader_bookmark_added">已添加当前章节书签</string>
+    <string name="reader_bookmark_removed">已移除当前章节书签</string>
+    <string name="reader_first_chapter_hint">没有上一个目录项</string>
+    <string name="reader_last_chapter_hint">没有下一个目录项</string>
+
+    <!-- Typography Settings Sheet -->
+    <string name="settings_title">排版与阅读设置</string>
+    <string name="settings_theme_label">阅读主题</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_white">纯白</string>
+    <string name="settings_theme_warm">暖纸护眼</string>
+    <string name="settings_theme_gray">柔和灰</string>
+    <string name="settings_theme_amoled">纯黑</string>
+    <string name="settings_page_turn_label">翻页模式</string>
+    <string name="settings_mode_paginated">左右分页</string>
+    <string name="settings_mode_scrolled">上下滚动</string>
+    <string name="settings_font_size_label">字号大小</string>
+    <string name="settings_line_height_label">行距倍数</string>
+    <string name="settings_margin_label">页面边距</string>
+    <string name="settings_font_decrease_cd">减小字号</string>
+    <string name="settings_font_increase_cd">增大字号</string>
+
+    <!-- TOC & Bookmarks Sheet -->
+    <string name="toc_empty">本书未提供目录</string>
+    <string name="toc_expand">展开「%1$s」</string>
+    <string name="toc_collapse">收起「%1$s」</string>
+    <string name="sheet_tab_toc">目录</string>
+    <string name="sheet_tab_bookmarks">书签</string>
+    <string name="sheet_bookmarks_empty_title">暂无书签</string>
+    <string name="sheet_bookmarks_empty_subtitle">阅读时点击右上角书签图标，或点击下方按钮收藏精彩章节。</string>
+    <string name="sheet_add_bookmark_here">在此处添加书签</string>
+    <string name="sheet_delete_bookmark_cd">删除书签</string>
+</resources>
