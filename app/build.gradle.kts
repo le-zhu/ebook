@@ -5,15 +5,17 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk = 37
+  compileSdk {
+    version = release(37) { minorApiLevel = 1 }
+  }
   buildToolsVersion = "37.0.0"
 
   defaultConfig {
     applicationId = "com.aistudio.epubreader.mkyrqt"
     minSdk = 24
     targetSdk = 36
-    versionCode = 19
-    versionName = "1.7.0"
+    versionCode = 25
+    versionName = "1.7.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

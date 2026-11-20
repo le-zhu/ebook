@@ -1,7 +1,11 @@
 package com.example.ui.reader
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +22,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.rounded.NavigateNext
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -37,23 +44,33 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Velocity
 import com.example.R
 import com.example.ui.EbookActionButton
 import com.example.ui.EbookBadge
@@ -67,6 +84,7 @@ import com.example.model.Bookmark
 import com.example.model.flattenToc
 import com.example.model.TocItem
 import com.example.ui.theme.ReaderBodySerifFont
+import kotlinx.coroutines.launch
 
 /**
  * Material 3 ModalBottomSheet with PrimaryTabRow switching between multi-level Table of Contents
@@ -85,11 +103,17 @@ fun TocAndBookmarksSheet(
     onDeleteBookmark: (String) -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-
-    var expanded by rememberSaveable(book.id, activeTocItemId) {
+    val pager = rememberPagerState { 2 }
+    val scope = rememberCoroutineScope()
+    fun selectPage(index: Int) { scope.launch { pager.animateScrollToPage(index) } }
+    var expanded by rememberSaveable(book.id) {
         mutableStateOf(ArrayList(book.tocEntries.filter { activeTocItemId?.startsWith(it.id + ".") == true }.map { it.id }))
     }
+    val entries = remember(book.toc, expanded) { book.toc.flattenToc(expanded.toSet()) }
+    val tocListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = entries.indexOfFirst { it.id == activeTocItemId }.coerceAtLeast(0),
+    )
+    val bookmarkListState = rememberLazyListState()
 
     EbookBottomSheet(onDismiss) {
         Column(
@@ -122,18 +146,18 @@ fun TocAndBookmarksSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
             PrimaryTabRow(
-                selectedTabIndex = selectedTab,
+                selectedTabIndex = pager.currentPage,
                 containerColor = MaterialTheme.colorScheme.surface,
             ) {
                 Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
+                    selected = pager.currentPage == 0,
+                    onClick = { selectPage(0) },
                     text = { Text(stringResource(R.string.sheet_tab_toc)) },
                     modifier = Modifier.testTag("sheet_tab_toc"),
                 )
                 Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
+                    selected = pager.currentPage == 1,
+                    onClick = { selectPage(1) },
                     text = {
                         val label = stringResource(R.string.sheet_tab_bookmarks)
                         Text(if (bookmarks.isEmpty()) label else "$label (${bookmarks.size})")
@@ -143,16 +167,19 @@ fun TocAndBookmarksSheet(
             }
 
             Box(Modifier.fillMaxWidth().weight(1f)) {
-                when (selectedTab) {
-                    0 -> TocList(book.toc, expanded, activeTocItemId, onToggle = { id ->
-                        expanded = ArrayList(if (id in expanded) expanded - id else expanded + id)
-                    }) { item ->
-                        onSelectChapter(item)
-                        onDismiss()
-                    }
-                    1 -> BookmarksTab(bookmarks, onAddBookmarkHere, onDeleteBookmark) { bookmark ->
-                        onSelectBookmark(bookmark)
-                        onDismiss()
+                HorizontalPager(state = pager, modifier = Modifier.fillMaxSize().testTag("reader_tabs_pager")) { page ->
+                    if (page == 0) {
+                        TocList(entries, tocListState, expanded, activeTocItemId, onToggle = { id ->
+                            expanded = ArrayList(if (id in expanded) expanded - id else expanded + id)
+                        }) { item ->
+                            onSelectChapter(item)
+                            onDismiss()
+                        }
+                    } else {
+                        BookmarksTab(bookmarks, bookmarkListState, onAddBookmarkHere, onDeleteBookmark) { bookmark ->
+                            onSelectBookmark(bookmark)
+                            onDismiss()
+                        }
                     }
                 }
                 EbookSnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(16.dp))
@@ -163,30 +190,25 @@ fun TocAndBookmarksSheet(
 
 @Composable
 private fun TocList(
-    roots: List<TocItem>,
+    entries: List<TocItem>,
+    state: LazyListState,
     expanded: List<String>,
     activeId: String?,
     onToggle: (String) -> Unit,
     onSelect: (TocItem) -> Unit,
 ) {
-    if (roots.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.toc_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        return
-    }
-    val entries = remember(roots, expanded) { roots.flattenToc(expanded.toSet()) }
-    val state = rememberLazyListState()
-    LaunchedEffect(activeId) {
-        val index = entries.indexOfFirst { it.id == activeId }
-        if (index >= 0) state.scrollToItem(index)
-    }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().testTag("toc_list"),
+        modifier = Modifier.fillMaxSize().sheetListGestures(state).testTag("toc_list"),
         state = state,
+        overscrollEffect = null,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        if (entries.isEmpty()) item {
+            Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                Text(stringResource(R.string.toc_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         items(entries, key = { it.id }) { item ->
             TocRowItem(item, isActive = item.id == activeId, expanded = item.id in expanded,
                 onClick = { onSelect(item) }, onToggle = { onToggle(item.id) })
@@ -197,6 +219,7 @@ private fun TocList(
 @Composable
 private fun BookmarksTab(
     bookmarks: List<Bookmark>,
+    state: LazyListState,
     onAdd: () -> Unit,
     onDelete: (String) -> Unit,
     onSelect: (Bookmark) -> Unit,
@@ -209,21 +232,77 @@ private fun BookmarksTab(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
                 .testTag("sheet_add_bookmark_button"),
         )
-        val listArea = Modifier.fillMaxWidth().weight(1f)
-        if (bookmarks.isEmpty()) {
-            BookmarksEmptyState(modifier = listArea)
-        } else {
-            LazyColumn(
-                modifier = listArea.testTag("bookmarks_list"),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(bookmarks, key = { it.id }) { bookmark ->
-                    BookmarkCard(bookmark, onClick = { onSelect(bookmark) }, onDelete = { onDelete(bookmark.id) })
-                }
+        LazyColumn(
+            state = state,
+            overscrollEffect = null,
+            modifier = Modifier.fillMaxWidth().weight(1f).sheetListGestures(state).testTag("bookmarks_list"),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (bookmarks.isEmpty()) item { BookmarksEmptyState(Modifier.fillParentMaxSize()) }
+            items(bookmarks, key = { it.id }) { bookmark ->
+                BookmarkCard(bookmark, onClick = { onSelect(bookmark) }, onDelete = { onDelete(bookmark.id) })
             }
         }
     }
+}
+
+// Let Material handle the drag only if this touch started at the top and first moved down.
+// A scroll that reaches the edge midway, or reverses, belongs to the list until release.
+@Composable
+private fun Modifier.sheetListGestures(state: LazyListState): Modifier {
+    val maxOffset = with(LocalDensity.current) { 16.dp.toPx() }
+    var edgeOffset by remember { mutableFloatStateOf(0f) }
+    val connection = remember(state, maxOffset) {
+        object : NestedScrollConnection {
+            var startedAtTop = false
+            var pullDown = false
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (startedAtTop && source == NestedScrollSource.UserInput && available.y != 0f) {
+                    pullDown = available.y > 0f
+                    startedAtTop = false
+                }
+                if (edgeOffset * available.y < 0f) edgeOffset = 0f
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (pullDown || source != NestedScrollSource.UserInput) return Offset.Zero
+                edgeOffset = (edgeOffset + available.y * 0.18f).coerceIn(-maxOffset, maxOffset)
+                return Offset(0f, available.y)
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (pullDown) return Velocity.Zero
+                if (edgeOffset != 0f || available.y != 0f) {
+                    try {
+                        // Cap the impulse too, so a fast fling only nudges the list.
+                        animate(
+                            initialValue = edgeOffset,
+                            targetValue = 0f,
+                            initialVelocity = available.y.coerceIn(-maxOffset * 32, maxOffset * 32),
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        ) { value, _ ->
+                            edgeOffset = value.coerceIn(-maxOffset, maxOffset)
+                        }
+                    } finally {
+                        edgeOffset = 0f
+                    }
+                }
+                return Velocity(0f, available.y)
+            }
+        }
+    }
+    return clipToBounds().graphicsLayer { translationY = edgeOffset }
+        .nestedScroll(connection)
+        .pointerInput(connection) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                connection.startedAtTop = !state.canScrollBackward
+                connection.pullDown = false
+            }
+        }
 }
 
 @Composable
@@ -238,12 +317,12 @@ private fun TocRowItem(
     val isSectionHeader = item.level == 0 && item.children.isNotEmpty()
 
     Surface(
+        onClick = onClick,
+        enabled = item.destination != null,
         shape = MaterialTheme.shapes.medium,
         color = if (isActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(enabled = item.destination != null, onClick = onClick)
             .semantics { selected = isActive }
             .testTag("toc_item_${item.id}"),
     ) {
@@ -304,12 +383,11 @@ private fun BookmarkCard(
     onDelete: () -> Unit,
 ) {
     Surface(
+        onClick = onClick,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick)
             .testTag("bookmark_card_${bookmark.id}"),
     ) {
         Row(

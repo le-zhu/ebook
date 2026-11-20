@@ -19,7 +19,7 @@ View your app in AI Studio: https://ai.studio/apps/860f9491-ab53-428a-91ad-c48e0
 .\gradlew.bat :app:testDebugUnitTest
 ```
 
-调试安装包位于 `app/build/outputs/apk/debug/app-debug.apk`。项目使用 Android SDK 37、Build Tools 37.0.0 和 Readium 3.4.0。
+调试安装包位于 `app/build/outputs/apk/debug/app-debug.apk`。项目使用 Android SDK 37.1、Build Tools 37.0.0 和 Readium 3.4.0。
 
 书架的「导入文件夹」会扫描所选目录和所有子目录，将 EPUB 加入书架。文件夹里新增书后，可以再次导入；内容相同的书会自动跳过。文件管理器可以通过「打开方式」直接阅读单本。导入的副本及封面保存在应用私有目录，阅读位置、书签、书架及排版偏好由 DataStore 保存。
 
