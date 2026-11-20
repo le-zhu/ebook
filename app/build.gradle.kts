@@ -14,8 +14,8 @@ android {
     applicationId = "com.aistudio.epubreader.mkyrqt"
     minSdk = 24
     targetSdk = 36
-    versionCode = 33
-    versionName = "1.7.13"
+    versionCode = 34
+    versionName = "1.7.14"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -38,7 +38,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.findByName("release")
     }
