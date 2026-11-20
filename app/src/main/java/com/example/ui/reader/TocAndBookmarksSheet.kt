@@ -1,11 +1,6 @@
 package com.example.ui.reader
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,30 +42,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Velocity
 import com.example.R
 import com.example.ui.EbookActionButton
 import com.example.ui.EbookBadge
@@ -167,7 +151,12 @@ fun TocAndBookmarksSheet(
             }
 
             Box(Modifier.fillMaxWidth().weight(1f)) {
-                HorizontalPager(state = pager, modifier = Modifier.fillMaxSize().testTag("reader_tabs_pager")) { page ->
+                HorizontalPager(
+                    state = pager,
+                    modifier = Modifier.fillMaxSize().testTag("reader_tabs_pager")
+                        .sheetPagerGestures(),
+                    overscrollEffect = null,
+                ) { page ->
                     if (page == 0) {
                         TocList(entries, tocListState, expanded, activeTocItemId, onToggle = { id ->
                             expanded = ArrayList(if (id in expanded) expanded - id else expanded + id)
@@ -198,7 +187,7 @@ private fun TocList(
     onSelect: (TocItem) -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().sheetListGestures(state).testTag("toc_list"),
+        modifier = Modifier.fillMaxSize().readerSheetGestures(state).testTag("toc_list"),
         state = state,
         overscrollEffect = null,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
@@ -234,8 +223,8 @@ private fun BookmarksTab(
         )
         LazyColumn(
             state = state,
+            modifier = Modifier.fillMaxWidth().weight(1f).readerSheetGestures(state).testTag("bookmarks_list"),
             overscrollEffect = null,
-            modifier = Modifier.fillMaxWidth().weight(1f).sheetListGestures(state).testTag("bookmarks_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -245,64 +234,6 @@ private fun BookmarksTab(
             }
         }
     }
-}
-
-// Let Material handle the drag only if this touch started at the top and first moved down.
-// A scroll that reaches the edge midway, or reverses, belongs to the list until release.
-@Composable
-private fun Modifier.sheetListGestures(state: LazyListState): Modifier {
-    val maxOffset = with(LocalDensity.current) { 16.dp.toPx() }
-    var edgeOffset by remember { mutableFloatStateOf(0f) }
-    val connection = remember(state, maxOffset) {
-        object : NestedScrollConnection {
-            var startedAtTop = false
-            var pullDown = false
-
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (startedAtTop && source == NestedScrollSource.UserInput && available.y != 0f) {
-                    pullDown = available.y > 0f
-                    startedAtTop = false
-                }
-                if (edgeOffset * available.y < 0f) edgeOffset = 0f
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (pullDown || source != NestedScrollSource.UserInput) return Offset.Zero
-                edgeOffset = (edgeOffset + available.y * 0.18f).coerceIn(-maxOffset, maxOffset)
-                return Offset(0f, available.y)
-            }
-
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (pullDown) return Velocity.Zero
-                if (edgeOffset != 0f || available.y != 0f) {
-                    try {
-                        // Cap the impulse too, so a fast fling only nudges the list.
-                        animate(
-                            initialValue = edgeOffset,
-                            targetValue = 0f,
-                            initialVelocity = available.y.coerceIn(-maxOffset * 32, maxOffset * 32),
-                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        ) { value, _ ->
-                            edgeOffset = value.coerceIn(-maxOffset, maxOffset)
-                        }
-                    } finally {
-                        edgeOffset = 0f
-                    }
-                }
-                return Velocity(0f, available.y)
-            }
-        }
-    }
-    return clipToBounds().graphicsLayer { translationY = edgeOffset }
-        .nestedScroll(connection)
-        .pointerInput(connection) {
-            awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                connection.startedAtTop = !state.canScrollBackward
-                connection.pullDown = false
-            }
-        }
 }
 
 @Composable

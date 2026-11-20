@@ -89,12 +89,14 @@ fun TypographySettingsSheet(
     val isSystemDark = isSystemInDarkTheme()
 
     EbookBottomSheet(onDismiss) {
+        val scroll = rememberScrollState()
         Column(
             modifier = Modifier
                 .testTag("settings_sheet")
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
+                .readerSheetGestures(scroll, sidePull = true)
+                .verticalScroll(scroll, overscrollEffect = null)
                 .padding(horizontal = 22.dp)
                 .padding(bottom = 24.dp),
         ) {

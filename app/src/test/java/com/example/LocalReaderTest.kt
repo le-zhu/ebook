@@ -81,7 +81,7 @@ class LocalReaderTest {
             val reopened = LocalLibrary(context, scope, coldStore)
             assertEquals(place.toJSON().toString(), reopened.lastLocator(book.id)?.toJSON().toString())
             assertEquals(0.75f, reopened.observeBook(book.id).first()!!.progress, 0.001f)
-            assertEquals(place.toJSON().toString(), reopened.observeBookmarks(book.id).first().single().locatorJson)
+            assertEquals(place, reopened.observeBookmarks(book.id).first().single().locator)
             assertEquals(24f, reopened.preferences.first().fontSizeSp, 0f)
             assertEquals(LayoutMode.CUSTOM, reopened.layout(book.id).first().mode)
             assertEquals(31f, reopened.layout(book.id).first().preferences.horizontalMarginDp, 0f)
@@ -95,7 +95,15 @@ class LocalReaderTest {
             val finalRemoval = reopened.removeBook(book.id)
             reopened.endRemoval(book.id, finalRemoval, false)
             assertNull(reopened.observeBook(book.id).first())
+            assertFalse(coldStore.data.first().asMap().keys.any { it.name.endsWith(":" + book.id) })
             assertTrue(reopened.import(source).second)
+            reopened.savePosition(book.id, 1, "下章", 0.75f, place)
+            reopened.bookmark(book.id, 1, "下章", 75, place, false)
+            reopened.setLayoutMode(book.id, LayoutMode.CUSTOM)
+            reopened.removeBook(book.id)
+            reopened.recover()
+            assertFalse(coldStore.data.first().asMap().keys.any { it.name.endsWith(":" + book.id) })
+            assertEquals("第二本", reopened.books.first().single().title)
         } finally { scope.cancel() }
     }
 

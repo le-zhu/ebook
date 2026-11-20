@@ -8,11 +8,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnAttach
 import androidx.fragment.app.FragmentActivity
@@ -64,7 +62,8 @@ internal fun EpubContent(
             readingProgression = if (original) null else ReadingProgression.LTR,
             fontSize = if (original) null else p.fontSizeSp / 16.0,
             lineHeight = if (original) null else p.lineHeightMultiplier.toDouble(),
-            pageMargins = if (original) null else 0.0,
+            // The custom stylesheet uses a 1 CSS px gutter, so this factor is the chosen margin in dp.
+            pageMargins = if (original) null else p.horizontalMarginDp.toDouble(),
             scroll = p.pageTurnMode == PageTurnMode.SCROLLED,
             theme = if (palette.isDark) Theme.DARK else Theme.LIGHT,
             backgroundColor = if (original) null else Color(palette.background.toArgb()),
@@ -75,7 +74,7 @@ internal fun EpubContent(
     var container by remember { mutableStateOf<FragmentContainerView?>(null) }
     var navigator by remember { mutableStateOf<EpubNavigatorFragment?>(null) }
     AndroidView(
-        modifier = modifier.background(palette.background).padding(horizontal = if (original) 0.dp else p.horizontalMarginDp.dp)
+        modifier = modifier.background(palette.background)
             .pointerInput(model) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)

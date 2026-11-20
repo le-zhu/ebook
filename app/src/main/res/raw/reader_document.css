@@ -1,4 +1,8 @@
 /* Readium sets this flag on reflowable documents while publisher styles are overridden. */
+:root[style*="readium-advanced-on"] {
+    --RS__pageGutter: 1px;
+}
+
 :root[style*="readium-advanced-on"],
 :root[style*="readium-advanced-on"] body,
 :root[style*="readium-advanced-on"] body :not(svg, svg *, math, math *) {

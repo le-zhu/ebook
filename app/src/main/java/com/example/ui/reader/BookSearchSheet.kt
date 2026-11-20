@@ -43,30 +43,40 @@ internal fun BookSearchSheet(
     val focus = remember { FocusRequester() }
     LaunchedEffect(state.query) { list.scrollToItem(0) }
     EbookBottomSheet(onDismiss) {
-        Column(Modifier.testTag("search_sheet").fillMaxWidth().fillMaxHeight(ListSheetHeightFraction).imePadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
-            Text("全书搜索", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = state.query, onValueChange = onQuery, singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                placeholder = { Text("输入人名或原文") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { submit() }),
-                trailingIcon = { EbookTextButton("搜索", submit, enabled = state.query.isNotBlank()) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = TallControlHeight).focusRequester(focus).testTag("search_query"),
-            )
-            LaunchedEffect(Unit) { if (state.query.isEmpty()) focus.requestFocus() }
-            Spacer(Modifier.height(8.dp))
-            val summary = when {
-                state.error != null -> state.error
-                state.loading -> "正在查找…"
-                !state.submitted -> ""
-                state.hits.isEmpty() -> "没有找到匹配的正文"
-                state.hasMore -> "已显示 ${state.hits.size} 处匹配"
-                else -> "共 ${state.hits.size} 处匹配"
+        Column(Modifier.testTag("search_sheet").fillMaxWidth().fillMaxHeight(ListSheetHeightFraction).imePadding().navigationBarsPadding()) {
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                Text("全书搜索", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = state.query, onValueChange = onQuery, singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    placeholder = { Text("输入人名或原文") },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { submit() }),
+                    trailingIcon = { EbookTextButton("搜索", submit, enabled = state.query.isNotBlank()) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = TallControlHeight).focusRequester(focus).testTag("search_query"),
+                )
+                LaunchedEffect(Unit) { if (state.query.isEmpty()) focus.requestFocus() }
+                Spacer(Modifier.height(8.dp))
+                val summary = when {
+                    state.error != null -> state.error
+                    state.loading -> "正在查找…"
+                    !state.submitted -> ""
+                    state.hits.isEmpty() -> "没有找到匹配的正文"
+                    state.hasMore -> "已显示 ${state.hits.size} 处匹配"
+                    else -> "共 ${state.hits.size} 处匹配"
+                }
+                if (summary.isNotEmpty()) {
+                    Text(summary, style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                }
             }
-            if (summary.isNotEmpty()) Text(summary, style = MaterialTheme.typography.labelLarge)
-            LazyColumn(state = list, modifier = Modifier.weight(1f).testTag("search_results"), contentPadding = PaddingValues(vertical = 8.dp)) {
+            LazyColumn(
+                state = list,
+                modifier = Modifier.fillMaxWidth().weight(1f).readerSheetGestures(list, sidePull = true).testTag("search_results"),
+                overscrollEffect = null,
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+            ) {
                 itemsIndexed(state.hits) { index, hit ->
                     Column(Modifier.fillMaxWidth().clickable { onRead(hit) }.testTag("search_hit_$index").padding(vertical = 12.dp)) {
                         Text(chapterTitle(hit), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

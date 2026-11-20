@@ -23,6 +23,8 @@ import org.readium.r2.shared.publication.*
 import org.readium.r2.shared.publication.services.locateProgression
 import org.readium.r2.shared.util.Url
 
+enum class ReaderPanel { TOC, SEARCH, SETTINGS }
+
 data class ReaderUiState(
     val book: Book? = null,
     val currentChapterIndex: Int = 0,
@@ -32,13 +34,11 @@ data class ReaderUiState(
     val bookmarks: List<Bookmark> = emptyList(),
     val isCurrentChapterBookmarked: Boolean = false,
     val layoutMode: LayoutMode = LayoutMode.ORIGINAL,
-    val showSearch: Boolean = false,
+    val panel: ReaderPanel? = null,
     val canReturnFromSearch: Boolean = false,
     val searchHighlight: Locator? = null,
     val preferences: ReaderPreferences = ReaderPreferences.Default,
     val controlsVisible: Boolean = true,
-    val showSettingsSheet: Boolean = false,
-    val showTocSheet: Boolean = false,
     val error: String? = null,
 ) {
     val currentChapterTitle get() = section?.title
@@ -93,7 +93,7 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
     }
 
     private fun matches(marks: List<Bookmark>, place: Locator?) = marks.any {
-        samePlace(it.locatorJson?.let { json -> Locator.fromJSON(JSONObject(json)) }, place)
+        samePlace(it.locator, place)
     }
 
     internal fun attach(nav: EpubNavigatorFragment) { navigator = nav }
@@ -159,7 +159,7 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
 
     fun selectBookmark(mark: Bookmark) {
         cancelSeek()
-        val place = mark.locatorJson?.let { Locator.fromJSON(JSONObject(it)) }
+        val place = mark.locator
         if (place != null) navigator?.go(place, false) else goToTarget(mark.chapterIndex, null)
     }
 
@@ -212,16 +212,15 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
 
     fun removeBookmark(key: String) { viewModelScope.launch { library.removeBookmark(id, key) } }
     fun toggleControls() { state.update { it.copy(controlsVisible = !it.controlsVisible) } }
-    fun openSettingsSheet() { state.update { it.copy(showSettingsSheet = true, showTocSheet = false, controlsVisible = true) } }
-    fun dismissSettingsSheet() { state.update { it.copy(showSettingsSheet = false) } }
-    fun openTocSheet() {
-        state.update { it.copy(showSettingsSheet = false, showTocSheet = true, controlsVisible = true) }
+    fun openPanel(panel: ReaderPanel) {
+        if (state.value.panel == ReaderPanel.SEARCH && panel != ReaderPanel.SEARCH) search.dismiss()
+        state.update { it.copy(panel = panel, controlsVisible = true) }
     }
 
-    fun openSearch() { state.update { it.copy(showSearch = true, controlsVisible = true) } }
-    fun dismissSearch() {
-        search.dismiss()
-        state.update { it.copy(showSearch = false) }
+    fun dismissPanel(panel: ReaderPanel) {
+        if (state.value.panel != panel) return
+        if (panel == ReaderPanel.SEARCH) search.dismiss()
+        state.update { it.copy(panel = null) }
     }
     fun searchChapter(hit: Locator): String {
         val index = publication?.readingOrder?.indexOfFirstWithHref(hit.href)
@@ -237,7 +236,7 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
         cancelSeek()
         if (nav.go(hit, false)) {
             if (!saved.contains("searchOrigin")) saved["searchOrigin"] = origin.toJSON().toString()
-            dismissSearch()
+            dismissPanel(ReaderPanel.SEARCH)
             state.update { it.copy(canReturnFromSearch = true, searchHighlight = hit, controlsVisible = true) }
         }
     }
@@ -252,7 +251,6 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
         saved.remove<String>("searchOrigin")
         state.update { it.copy(canReturnFromSearch = false, searchHighlight = null) }
     }
-    fun dismissTocSheet() { state.update { it.copy(showTocSheet = false) } }
     private fun settings(change: (ReaderPreferences) -> ReaderPreferences) {
         viewModelScope.launch { library.editLayout(id, change = change) }
     }

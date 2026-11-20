@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.text.format.Formatter
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.core.DataStore
@@ -55,7 +56,15 @@ class LocalLibrary internal constructor(
             .mapNotNull { book(data, it.name.removePrefix("book:")) }
     }.distinctUntilChanged()
     fun observeBook(id: String) = store.data.map { book(it, id) }.distinctUntilChanged()
-    fun observeBookmarks(id: String) = store.data.map { it.bookmarks(id) }.distinctUntilChanged()
+    fun observeBookmarks(id: String) = store.data.map { it[marks(id)] }.distinctUntilChanged().map { raw ->
+        val list = JSONArray(raw ?: "[]")
+        List(list.length()) { i ->
+            val row = list.getJSONObject(i)
+            Bookmark(row.getString("id"), id, row.getInt("chapter"), row.getString("title"),
+                row.getInt("percent"), row.optString("excerpt"), row.getString("created"),
+                Locator.fromJSON(row.optJSONObject("locator")))
+        }
+    }
     val preferences = store.data.map { decodePreferences(it[settings]) }.distinctUntilChanged()
 
     fun layout(id: String) = store.data.map { data ->
@@ -210,15 +219,6 @@ class LocalLibrary internal constructor(
         }
     }
 
-    private fun Preferences.bookmarks(id: String): List<Bookmark> {
-        val list = JSONArray(this[marks(id)] ?: "[]")
-        return (0 until list.length()).map { list.getJSONObject(it) }.map {
-            Bookmark(it.getString("id"), id, it.getInt("chapter"), it.getString("title"),
-                it.getInt("percent"), it.optString("excerpt"), it.getString("created"),
-                it.getJSONObject("locator").toString())
-        }
-    }
-
     suspend fun bookmark(id: String, index: Int, title: String, percent: Int, locator: Locator, toggle: Boolean): Boolean {
         val json = locator.toJSON()
         var added = false
@@ -226,7 +226,7 @@ class LocalLibrary internal constructor(
             if (data[entry(id)] == null || data[trash(id)] != null) return@edit
             val list = JSONArray(data[marks(id)] ?: "[]")
             val previous = (0 until list.length()).firstOrNull {
-                samePlace(Locator.fromJSON(list.getJSONObject(it).getJSONObject("locator")), locator)
+                samePlace(Locator.fromJSON(list.getJSONObject(it).optJSONObject("locator")), locator)
             }
             if (previous != null && toggle) list.remove(previous)
             else if (previous == null) {
@@ -259,8 +259,7 @@ class LocalLibrary internal constructor(
         fileLock.withLock {
             val updated = store.edit { data ->
                 if (data[trash(id)] == token) {
-                    data.remove(trash(id))
-                    if (!undo) { data.remove(entry(id)); data.remove(position(id)); data.remove(marks(id)); data.remove(layoutKey(id)); data.remove(customKey(id)) }
+                    if (undo) data.remove(trash(id)) else data.forgetBook(id)
                 }
             }
             if (updated[entry(id)] == null) { files.file(id).delete(); files.cover(id).delete() }
@@ -272,12 +271,20 @@ class LocalLibrary internal constructor(
         fileLock.withLock {
             val active = store.edit { data ->
                 for (key in data.asMap().keys.filter { it.name.startsWith("trash:") }) {
-                    val id = key.name.substringAfter(':')
-                    data.remove(trash(id)); data.remove(entry(id)); data.remove(position(id)); data.remove(marks(id)); data.remove(layoutKey(id)); data.remove(customKey(id))
+                    data.forgetBook(key.name.substringAfter(':'))
                 }
             }
             files.directory.listFiles()?.filter { active[entry(it.nameWithoutExtension)] == null }?.forEach(File::delete)
         }
+    }
+
+    private fun MutablePreferences.forgetBook(id: String) {
+        remove(trash(id))
+        remove(entry(id))
+        remove(position(id))
+        remove(marks(id))
+        remove(layoutKey(id))
+        remove(customKey(id))
     }
 
     suspend fun updatePreferences(change: (ReaderPreferences) -> ReaderPreferences) {

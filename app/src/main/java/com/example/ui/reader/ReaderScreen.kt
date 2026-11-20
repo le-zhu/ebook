@@ -50,10 +50,10 @@ fun ReaderScreen(
         resolveReaderPalette(uiState.preferences.theme, isSystemDark, colorScheme)
     }
 
-    // Dynamically adjust status/navigation bar icon colors for the 5 reader themes & hide bars in immersion
+    val panel = uiState.panel
     SystemBarsAppearanceEffect(
         isDarkBackground = palette.isDark,
-        hideSystemBars = !uiState.controlsVisible && !uiState.showSettingsSheet && !uiState.showTocSheet && !uiState.showSearch,
+        hideSystemBars = !uiState.controlsVisible && panel == null,
     )
 
     val book = uiState.book
@@ -91,7 +91,7 @@ fun ReaderScreen(
         }
     }
 
-    BackHandler(enabled = uiState.canReturnFromSearch && !uiState.showSearch && !uiState.showTocSheet && !uiState.showSettingsSheet) {
+    BackHandler(enabled = uiState.canReturnFromSearch && panel == null) {
         viewModel.returnFromSearch()
     }
     val readingColors = if (palette.isDark == isSystemDark) colorScheme else appColorScheme(palette.isDark)
@@ -105,12 +105,12 @@ fun ReaderScreen(
             canGoPreviousChapter = uiState.previousChapter != null,
             canGoNextChapter = uiState.nextChapter != null,
             palette = palette,
-            snackbarHostState = if (uiState.showTocSheet) null else snackbarHostState,
+            snackbarHostState = if (panel == ReaderPanel.TOC) null else snackbarHostState,
             onNavigateBack = onNavigateBack,
-            onOpenSearch = viewModel::openSearch,
+            onOpenSearch = { viewModel.openPanel(ReaderPanel.SEARCH) },
             onReturnFromSearch = if (uiState.canReturnFromSearch) viewModel::returnFromSearch else null,
             onStayAtSearchResult = viewModel::finishSearchVisit,
-            onOpenToc = viewModel::openTocSheet,
+            onOpenToc = { viewModel.openPanel(ReaderPanel.TOC) },
             onToggleBookmark = {
                 coroutineScope.launch {
                     viewModel.bookmark(toggle = true)?.let { added ->
@@ -130,18 +130,20 @@ fun ReaderScreen(
             },
             onSeekPreview = viewModel::previewSeek,
             onSeekFinished = viewModel::finishSeek,
-            onOpenSettings = viewModel::openSettingsSheet,
+            onOpenSettings = { viewModel.openPanel(ReaderPanel.SETTINGS) },
             readerContent = { slotModifier -> readerContent(slotModifier, uiState, palette) },
             modifier = modifier,
         )
 
-        if (uiState.showSettingsSheet) {
-            TypographySettingsSheet(
+        if (panel == null) return@MaterialTheme
+        val dismiss = { viewModel.dismissPanel(panel) }
+        when (panel) {
+            ReaderPanel.SETTINGS -> TypographySettingsSheet(
                 preferences = uiState.preferences,
                 mode = uiState.layoutMode,
                 systemColors = colorScheme,
                 onModeChange = viewModel::setLayoutMode,
-                onDismiss = viewModel::dismissSettingsSheet,
+                onDismiss = dismiss,
                 onThemeSelected = viewModel::setReaderTheme,
                 onPageTurnModeSelected = viewModel::setPageTurnMode,
                 onFontSizeChange = viewModel::setFontSize,
@@ -149,21 +151,17 @@ fun ReaderScreen(
                 onHorizontalMarginChange = viewModel::setHorizontalMargin,
                 onResetClick = viewModel::resetPreferences,
             )
-        }
-
-        if (uiState.showSearch) {
-            val searchState by viewModel.search.state.collectAsStateWithLifecycle()
-            BookSearchSheet(searchState, viewModel::searchChapter, viewModel.search::edit,
-                viewModel::submitSearch, viewModel.search::more, viewModel::readSearchHit, viewModel::dismissSearch)
-        }
-
-        if (uiState.showTocSheet) {
-            TocAndBookmarksSheet(
+            ReaderPanel.SEARCH -> {
+                val searchState by viewModel.search.state.collectAsStateWithLifecycle()
+                BookSearchSheet(searchState, viewModel::searchChapter, viewModel.search::edit,
+                    viewModel::submitSearch, viewModel.search::more, viewModel::readSearchHit, dismiss)
+            }
+            ReaderPanel.TOC -> TocAndBookmarksSheet(
                 book = book,
                 activeTocItemId = uiState.section?.id,
                 bookmarks = uiState.bookmarks,
                 snackbarHostState = snackbarHostState,
-                onDismiss = viewModel::dismissTocSheet,
+                onDismiss = dismiss,
                 onSelectChapter = viewModel::selectToc,
                 onSelectBookmark = viewModel::selectBookmark,
                 onAddBookmarkHere = {

@@ -30,6 +30,22 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+internal fun SemanticsNodeInteraction.checkSinglePageSidePull() {
+    val start = getUnclippedBoundsInRoot()
+    for (direction in listOf(-1f, 1f)) {
+        performTouchInput {
+            down(center)
+            moveBy(Offset(direction * 70.dp.toPx(), 0f), 100)
+        }
+        val dragged = getUnclippedBoundsInRoot()
+        val shift = (dragged.left - start.left) * direction
+        assertTrue("side pull: $shift", shift > 0.dp && shift <= 20.dp)
+        assertEquals(start.top, dragged.top)
+        performTouchInput { up() }
+        assertEquals(start, getUnclippedBoundsInRoot())
+    }
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], qualifiers = "w411dp-h891dp")
 class TocSheetGestureTest {
@@ -91,6 +107,20 @@ class TocSheetGestureTest {
         checkList("bookmarks_list")
     }
 
+    @Test fun releasingADownwardSheetDragDoesNotWaitForHorizontalPaging() {
+        open()
+        val sheet = ui.onNodeWithTag("toc_sheet")
+        ui.mainClock.autoAdvance = false
+        ui.onNodeWithTag("toc_list").performTouchInput {
+            swipeDown(startY = height * .1f, endY = height * .85f, durationMillis = 180)
+        }
+        val releaseTop = sheet.getUnclippedBoundsInRoot().top
+        repeat(6) { ui.mainClock.advanceTimeByFrame() }
+        assertTrue(sheet.getUnclippedBoundsInRoot().top > releaseTop + 1.dp)
+        ui.mainClock.autoAdvance = true
+        sheet.assertDoesNotExist()
+    }
+
     @Test fun swipeAndTapShareSelectionAndPreserveBothLists() {
         open()
         val toc = ui.onNodeWithTag("toc_list")
@@ -113,6 +143,59 @@ class TocSheetGestureTest {
         ui.onNodeWithTag("sheet_tab_toc").assertIsSelected()
     }
 
+    @Test fun diagonalTabSwipesSettleWithoutReversingOrDraggingTheSheet() {
+        open()
+        val pager = ui.onNodeWithTag("reader_tabs_pager")
+        val sheet = ui.onNodeWithTag("toc_sheet")
+        val sheetTop = sheet.getUnclippedBoundsInRoot().top
+        val pageStart = pager.getUnclippedBoundsInRoot().left
+        ui.mainClock.autoAdvance = false
+        fun switchPage(toBookmarks: Boolean) {
+            pager.performTouchInput {
+                val startX = if (toBookmarks) .85f else .15f
+                swipe(percentOffset(startX, .4f), percentOffset(1f - startX, .47f), durationMillis = 100)
+            }
+            val tag = if (toBookmarks) "bookmarks_list" else "toc_list"
+            val target = ui.onNodeWithTag(tag)
+            ui.mainClock.advanceTimeUntil(1000) { ui.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+            var previous = target.getUnclippedBoundsInRoot().left
+            repeat(40) {
+                ui.mainClock.advanceTimeByFrame()
+                val left = target.getUnclippedBoundsInRoot().left
+                val forward = if (toBookmarks) previous - left else left - previous
+                assertTrue("page reversed: $previous to $left", forward >= (-1).dp)
+                assertEquals(sheetTop, sheet.getUnclippedBoundsInRoot().top)
+                previous = left
+            }
+            assertEquals(pageStart, previous)
+            ui.onNodeWithTag(if (toBookmarks) "sheet_tab_bookmarks" else "sheet_tab_toc").assertIsSelected()
+        }
+        switchPage(toBookmarks = true)
+        switchPage(toBookmarks = false)
+    }
+
+    @Test fun outwardTabDragsHaveASmallElasticRangeOnBothEnds() {
+        open()
+        val pager = ui.onNodeWithTag("reader_tabs_pager")
+        fun pull(tag: String, direction: Float) {
+            val page = ui.onNodeWithTag(tag)
+            val start = page.getUnclippedBoundsInRoot().left
+            pager.performTouchInput {
+                down(center)
+                moveBy(Offset(direction * 75.dp.toPx(), 0f), 100)
+            }
+            val first = (page.getUnclippedBoundsInRoot().left - start) * direction
+            pager.performTouchInput { moveBy(Offset(direction * 75.dp.toPx(), 0f), 100) }
+            val second = (page.getUnclippedBoundsInRoot().left - start) * direction
+            assertTrue("outward displacement $first -> $second", first > 0.dp && second > first && second <= 20.dp)
+            pager.performTouchInput { up() }
+            assertEquals(start, page.getUnclippedBoundsInRoot().left)
+        }
+        pull("toc_list", 1f)
+        ui.onNodeWithTag("sheet_tab_bookmarks").performClick()
+        pull("bookmarks_list", -1f)
+    }
+
     @Test fun bothListEdgesYieldSlightlyAndSpringBackWithoutMovingTheSheet() {
         open()
         fun check(tag: String, rowPrefix: String, atEnd: Boolean) {
@@ -129,7 +212,7 @@ class TocSheetGestureTest {
             }
             val delta = row.getUnclippedBoundsInRoot().top - top
             val shift = if (atEnd) -delta else delta
-            assertTrue("edge displacement: $shift", shift > 0.dp && shift <= 17.dp)
+            assertTrue("edge displacement: $shift", shift > 16.dp && shift <= 52.dp)
             assertEquals(sheetTop, sheet.getUnclippedBoundsInRoot().top)
             list.performTouchInput { up() }
             assertEquals(top, row.getUnclippedBoundsInRoot().top)

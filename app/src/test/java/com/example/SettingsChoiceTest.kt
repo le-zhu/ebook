@@ -56,6 +56,42 @@ class SettingsChoiceTest {
     @Test @Config(qualifiers = "w411dp-h891dp-notnight")
     fun lightOptionsUseTheCurrentColorScheme() = verifyChoices()
 
+    @Test @Config(qualifiers = "w360dp-h400dp")
+    fun compactSettingsScrollVerticallyAndLetSlidersHandleHorizontalDrags() {
+        val shown = mutableStateOf(true)
+        val prefs = mutableStateOf(ReaderPreferences.Default)
+        ui.setContent {
+            if (shown.value) TypographySettingsSheet(
+                preferences = prefs.value, mode = LayoutMode.GLOBAL, onModeChange = {},
+                onDismiss = { shown.value = false }, onThemeSelected = {}, onPageTurnModeSelected = {},
+                onFontSizeChange = { prefs.value = prefs.value.copy(fontSizeSp = it) },
+                onLineHeightChange = { prefs.value = prefs.value.copy(lineHeightMultiplier = it) },
+                onHorizontalMarginChange = { prefs.value = prefs.value.copy(horizontalMarginDp = it) },
+                onResetClick = {},
+            )
+        }
+        val sheet = ui.onNodeWithTag("settings_sheet")
+        ui.onNodeWithText("排版与阅读设置").checkSinglePageSidePull()
+        // Bring each control into view, including the last one on a small screen.
+        for (tag in listOf("font_size_slider", "line_height_slider", "margin_slider")) {
+            val before = prefs.value
+            val slider = ui.onNodeWithTag(tag).performScrollTo()
+            val left = slider.getUnclippedBoundsInRoot().left
+            slider.performTouchInput {
+                down(center)
+                moveTo(percentOffset(.9f, .5f), 160)
+            }
+            assertEquals(left, slider.getUnclippedBoundsInRoot().left)
+            slider.performTouchInput { up() }
+            assertNotEquals(before, prefs.value)
+        }
+        sheet.performTouchInput { swipeDown(durationMillis = 120) }
+        sheet.assertIsDisplayed()
+        ui.onNodeWithText("排版与阅读设置").performScrollTo()
+        sheet.performTouchInput { swipeDown(durationMillis = 140) }
+        sheet.assertDoesNotExist()
+    }
+
     @Test @Config(qualifiers = "w411dp-h891dp-night")
     fun darkOptionsUseTheCurrentColorScheme() = verifyChoices()
 

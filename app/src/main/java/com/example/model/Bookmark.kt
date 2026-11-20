@@ -1,12 +1,8 @@
 package com.example.model
 
 import androidx.compose.runtime.Immutable
+import org.readium.r2.shared.publication.Locator
 
-/**
- * Represents a saved reading bookmark.
- * In Readium 3.x integration, [chapterIndex] and [progressPercent] can be paired
- * with a serialized Readium `Locator` JSON field.
- */
 @Immutable
 data class Bookmark(
     val id: String,
@@ -16,5 +12,5 @@ data class Bookmark(
     val progressPercent: Int,
     val excerpt: String,
     val createdAtLabel: String,
-    val locatorJson: String? = null,
+    val locator: Locator? = null,
 )

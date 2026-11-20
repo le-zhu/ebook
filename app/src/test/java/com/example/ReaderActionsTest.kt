@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.example.model.LayoutMode
 import com.example.ui.reader.ReaderViewModel
+import com.example.ui.reader.ReaderPanel
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -407,10 +408,12 @@ class ReaderActionsTest {
         val id = runBlocking { app.library.import(uri).first.id }
         find("book_grid_card_$id").performClick()
         find("reader_settings_button").performClick()
-        fun hasLayout(original: Boolean) = ui.runOnIdle {
-            val settings = ui.activity.supportFragmentManager.fragments.filterIsInstance<EpubNavigatorFragment>()
-                .firstOrNull()?.settings?.value
-            settings != null && settings.publisherStyles == original && settings.verticalText == original &&
+        fun hasLayout(original: Boolean, pageMargin: Double = if (original) 1.0 else 22.0) = ui.runOnIdle {
+            val navigator = ui.activity.supportFragmentManager.fragments.filterIsInstance<EpubNavigatorFragment>().firstOrNull()
+            val settings = navigator?.settings?.value
+            val viewport = ui.activity.findViewById<View>(android.R.id.content).width
+            settings != null && viewport > 0 && navigator.view?.width == viewport &&
+                settings.pageMargins == pageMargin && settings.publisherStyles == original && settings.verticalText == original &&
                 (settings.readingProgression == org.readium.r2.navigator.preferences.ReadingProgression.RTL) == original
         }
         find("layout_ORIGINAL").assertIsSelected()
@@ -424,9 +427,15 @@ class ReaderActionsTest {
         ui.waitUntil(10000) { hasLayout(original = false) }
         find("layout_CUSTOM").performScrollTo().performClick()
         ui.waitUntil(10000) { ui.onAllNodes(hasTestTag("layout_CUSTOM") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
+        find("margin_slider").performScrollTo().performSemanticsAction(
+            androidx.compose.ui.semantics.SemanticsActions.SetProgress
+        ) { it(34f) }
+        ui.waitUntil(10000) { hasLayout(original = false, pageMargin = 34.0) }
         find("font_size_increase").performScrollTo().performClick()
         ui.waitUntil(10000) { ui.onAllNodesWithText("20 sp").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(initial + 1, runBlocking { app.library.preferences.first().fontSizeSp })
+        find("layout_GLOBAL").performScrollTo().performClick()
+        ui.waitUntil(10000) { hasLayout(original = false) }
         find("layout_ORIGINAL").performScrollTo().performClick()
         ui.waitUntil(10000) { hasLayout(original = true) }
         assertEquals(LayoutMode.ORIGINAL, runBlocking { app.library.layout(id).first().mode })
@@ -465,6 +474,44 @@ class ReaderActionsTest {
         find("toc_item_toc.2").performClick()
         ui.waitUntil(10000) { page() == 3 }
         ui.onNodeWithTag("toc_sheet").assertDoesNotExist()
+    }
+
+    @Test fun searchResultsBounceAtTheEdgeAndOnlyDismissOnAFreshPullFromTheTop() {
+        val app = ui.activity.application as ReaderApplication
+        val uri = Uri.parse("content://reader.test/search-gestures.epub")
+        val bytes = epub("搜索列表", "测试词。".repeat(32))
+        shadowOf(app.contentResolver).registerInputStreamSupplier(uri) { bytes.inputStream() }
+        val id = runBlocking { app.library.import(uri).first.id }
+        find("book_grid_card_$id").performClick()
+        find("reader_search").performClick()
+        find("search_query").performTextInput("测试词")
+        find("search_query").performImeAction()
+        ui.waitUntil(10000) { ui.onAllNodesWithText("已显示 50 处匹配").fetchSemanticsNodes().isNotEmpty() }
+
+        val countBottom = ui.onNodeWithText("已显示 50 处匹配").getUnclippedBoundsInRoot().bottom
+        val firstHit = find("search_hit_0")
+        assertEquals(16f, (firstHit.getUnclippedBoundsInRoot().top - countBottom).value, 1f)
+        firstHit.checkSinglePageSidePull()
+        val list = find("search_results").performScrollToIndex(50)
+        val more = ui.onNodeWithText("显示更多结果")
+        val bottomRowTop = more.getUnclippedBoundsInRoot().top
+        list.performTouchInput {
+            down(center)
+            moveTo(percentOffset(.5f, .15f), 100)
+        }
+        val displacement = bottomRowTop - more.getUnclippedBoundsInRoot().top
+        assertTrue(displacement > 16.dp && displacement <= 52.dp)
+        list.performTouchInput { up() }
+        assertEquals(bottomRowTop, more.getUnclippedBoundsInRoot().top)
+        more.performClick()
+        ui.waitUntil(10000) { ui.onAllNodesWithText("共 64 处匹配").fetchSemanticsNodes().isNotEmpty() }
+        find("search_hit_49").assertIsDisplayed()
+
+        list.performScrollToIndex(1).performTouchInput { swipeDown(durationMillis = 100) }
+        find("search_hit_0").assertIsDisplayed()
+        list.performTouchInput { swipeDown(durationMillis = 140) }
+        ui.onNodeWithTag("search_sheet").assertDoesNotExist()
+        ui.onNodeWithTag("return_from_search").assertDoesNotExist()
     }
 
     @Test fun searchDetourReturnsToOriginalChapterAfterTwoHits() {
@@ -514,7 +561,13 @@ class ReaderActionsTest {
             val pub = requireNotNull(reader.publication)
             reader.attach(nav)
             val hit = requireNotNull(pub.locatorFromLink(pub.readingOrder.last()))
+            reader.openPanel(ReaderPanel.SEARCH)
+            reader.openPanel(ReaderPanel.TOC)
+            reader.dismissPanel(ReaderPanel.SEARCH)
+            assertEquals(ReaderPanel.TOC, reader.uiState.value.panel)
+            reader.openPanel(ReaderPanel.SEARCH)
             reader.readSearchHit(hit)
+            assertNull(reader.uiState.value.panel)
             assertEquals(hit, reader.uiState.value.searchHighlight)
             reader.finishSearchVisit()
             assertNull(reader.uiState.value.searchHighlight)
