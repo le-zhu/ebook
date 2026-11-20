@@ -87,6 +87,7 @@ import com.example.ui.EbookActionButton
 import com.example.ui.EbookBadge
 import com.example.ui.actionLabelStyle
 import com.example.ui.EbookBottomSheet
+import com.example.ui.sheetVerticalScroll
 import com.example.ui.theme.SystemBarsAppearanceEffect
 import com.example.ui.layoutChoiceHeight
 import com.example.ui.theme.TallControlHeight
@@ -505,6 +506,7 @@ private fun BookDetailBottomSheet(
                 .testTag("book_detail_sheet")
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .sheetVerticalScroll()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp),
         ) {

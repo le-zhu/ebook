@@ -1,4 +1,4 @@
-package com.example.ui.reader
+package com.example.ui
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -110,7 +112,13 @@ internal fun Modifier.sheetPagerGestures(): Modifier {
 }
 
 @Composable
-internal fun Modifier.readerSheetGestures(state: ScrollableState, sidePull: Boolean = false): Modifier {
+internal fun Modifier.sheetVerticalScroll(): Modifier {
+    val state = rememberScrollState()
+    return sheetScrollGestures(state, sidePull = true).verticalScroll(state, overscrollEffect = null)
+}
+
+@Composable
+internal fun Modifier.sheetScrollGestures(state: ScrollableState, sidePull: Boolean = false): Modifier {
     val vertical = rememberSheetEdge(horizontal = false)
     val side = if (sidePull) rememberSheetEdge(horizontal = true) else null
     val viewport = clipToBounds().graphicsLayer {

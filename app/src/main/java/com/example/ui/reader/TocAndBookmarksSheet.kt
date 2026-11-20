@@ -62,6 +62,8 @@ import com.example.ui.layoutChoiceHeight
 import com.example.ui.theme.ListSheetHeightFraction
 import com.example.ui.theme.TallControlHeight
 import com.example.ui.EbookBottomSheet
+import com.example.ui.sheetPagerGestures
+import com.example.ui.sheetScrollGestures
 import com.example.ui.EbookSnackbarHost
 import com.example.model.Book
 import com.example.model.Bookmark
@@ -187,7 +189,7 @@ private fun TocList(
     onSelect: (TocItem) -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().readerSheetGestures(state).testTag("toc_list"),
+        modifier = Modifier.fillMaxSize().sheetScrollGestures(state).testTag("toc_list"),
         state = state,
         overscrollEffect = null,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
@@ -223,7 +225,7 @@ private fun BookmarksTab(
         )
         LazyColumn(
             state = state,
-            modifier = Modifier.fillMaxWidth().weight(1f).readerSheetGestures(state).testTag("bookmarks_list"),
+            modifier = Modifier.fillMaxWidth().weight(1f).sheetScrollGestures(state).testTag("bookmarks_list"),
             overscrollEffect = null,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

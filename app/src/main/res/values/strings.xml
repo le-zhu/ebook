@@ -62,6 +62,7 @@
     <string name="toc_empty">本书未提供目录</string>
     <string name="toc_expand">展开「%1$s」</string>
     <string name="toc_collapse">收起「%1$s」</string>
+    <string name="sheet_close">关闭面板</string>
     <string name="sheet_tab_toc">目录</string>
     <string name="sheet_tab_bookmarks">书签</string>
     <string name="sheet_bookmarks_empty_title">暂无书签</string>

@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.ui.EbookBottomSheet
+import com.example.ui.sheetVerticalScroll
 import com.example.ui.EbookBadge
 import com.example.ui.layoutChoiceHeight
 import com.example.ui.actionLabelStyle
@@ -62,8 +63,6 @@ import com.example.model.ReaderTheme
 import com.example.ui.theme.ControlHeight
 import com.example.ui.theme.ReaderBodySerifFont
 import com.example.ui.theme.resolveReaderPalette
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import com.example.model.LayoutMode
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -89,14 +88,12 @@ fun TypographySettingsSheet(
     val isSystemDark = isSystemInDarkTheme()
 
     EbookBottomSheet(onDismiss) {
-        val scroll = rememberScrollState()
         Column(
             modifier = Modifier
                 .testTag("settings_sheet")
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .readerSheetGestures(scroll, sidePull = true)
-                .verticalScroll(scroll, overscrollEffect = null)
+                .sheetVerticalScroll()
                 .padding(horizontal = 22.dp)
                 .padding(bottom = 24.dp),
         ) {

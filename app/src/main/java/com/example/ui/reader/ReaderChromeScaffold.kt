@@ -3,6 +3,8 @@ package com.example.ui.reader
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -11,17 +13,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
@@ -203,34 +210,36 @@ fun ReaderChromeScaffold(
         }
 
         Column(
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (snackbarHostState != null) {
-                EbookSnackbarHost(snackbarHostState,
-                    Modifier.padding(horizontal = 16.dp).padding(bottom = if (controlsVisible) 0.dp else 20.dp))
+                EbookSnackbarHost(snackbarHostState, Modifier.padding(horizontal = 16.dp))
             }
-            AnimatedVisibility(
-                visible = controlsVisible,
-                enter = slideInVertically(tween(220)) { it },
-                exit = slideOutVertically(tween(180)) { it },
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-            ) {
-                FloatingReaderControlCapsule(
-                    chapterTitle = chapterTitle,
-                    overallProgress = overallProgress,
-                    canGoPreviousChapter = canGoPreviousChapter,
-                    canGoNextChapter = canGoNextChapter,
-                    surfaceColor = animatedChromeSurface,
-                    contentColor = animatedChromeText,
-                    onPreviousChapter = onPreviousChapter,
-                    onNextChapter = onNextChapter,
-                    onSeekPreview = onSeekPreview,
-                    onSeekFinished = onSeekFinished,
-                    onOpenToc = onOpenToc,
-                    onOpenSettings = onOpenSettings,
-                )
+            Box(contentAlignment = Alignment.BottomCenter) {
+                // The notice can follow the toolbar down to the navigation area.
+                Spacer(Modifier.navigationBarsPadding().height(20.dp))
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = controlsVisible,
+                    enter = expandVertically(tween(220), expandFrom = Alignment.Top, clip = false),
+                    exit = shrinkVertically(tween(180), shrinkTowards = Alignment.Top, clip = false),
+                ) {
+                    FloatingReaderControlCapsule(
+                        chapterTitle = chapterTitle,
+                        overallProgress = overallProgress,
+                        canGoPreviousChapter = canGoPreviousChapter,
+                        canGoNextChapter = canGoNextChapter,
+                        surfaceColor = animatedChromeSurface,
+                        contentColor = animatedChromeText,
+                        onPreviousChapter = onPreviousChapter,
+                        onNextChapter = onNextChapter,
+                        onSeekPreview = onSeekPreview,
+                        onSeekFinished = onSeekFinished,
+                        onOpenToc = onOpenToc,
+                        onOpenSettings = onOpenSettings,
+                    )
+                }
             }
         }
     }
@@ -264,6 +273,8 @@ private fun FloatingReaderControlCapsule(
         contentColor = contentColor,
         shadowElevation = FloatingPanelElevation,
         modifier = Modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
             .widthIn(max = 560.dp)
             .fillMaxWidth()
             .testTag("reader_bottom_capsule"),

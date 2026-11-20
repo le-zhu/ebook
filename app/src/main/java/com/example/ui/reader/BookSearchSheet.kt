@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.theme.ListSheetHeightFraction
 import com.example.ui.theme.TallControlHeight
 import com.example.ui.EbookBottomSheet
+import com.example.ui.sheetScrollGestures
 import com.example.ui.EbookTextButton
 import org.readium.r2.shared.publication.Locator
 
@@ -73,7 +74,7 @@ internal fun BookSearchSheet(
             }
             LazyColumn(
                 state = list,
-                modifier = Modifier.fillMaxWidth().weight(1f).readerSheetGestures(list, sidePull = true).testTag("search_results"),
+                modifier = Modifier.fillMaxWidth().weight(1f).sheetScrollGestures(list, sidePull = true).testTag("search_results"),
                 overscrollEffect = null,
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             ) {

@@ -4,6 +4,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.graphics.Color
@@ -16,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import com.example.model.ReaderTheme
 import com.example.ui.reader.ReaderChromeScaffold
 import com.example.ui.theme.resolveReaderPalette
+import com.example.ui.theme.ReaderColorPalette
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.SemanticsActions
@@ -125,15 +130,7 @@ class SettingsChoiceTest {
                 val scheme = MaterialTheme.colorScheme
                 val palette = resolveReaderPalette(theme.value, isSystemInDarkTheme(), scheme)
                 SideEffect { controls = scheme }
-                ReaderChromeScaffold(
-                    bookTitle = "书", chapterTitle = "章",
-                    overallProgress = 0.4f, isBookmarked = false, controlsVisible = true,
-                    canGoPreviousChapter = true, canGoNextChapter = true, palette = palette,
-                    snackbarHostState = null, onNavigateBack = {}, onOpenToc = {},
-                    onOpenSearch = {}, onReturnFromSearch = null, onStayAtSearchResult = {}, onToggleBookmark = {}, onPreviousChapter = {},
-                    onNextChapter = {}, onSeekPreview = {}, onSeekFinished = {}, onOpenSettings = {},
-                    readerContent = { Box(it.background(page.value)) },
-                )
+                TestReaderChrome(palette, page.value)
             }
         }
         val chapters = ui.onAllNodesWithText("章", useUnmergedTree = true).assertCountEquals(2)
@@ -161,6 +158,50 @@ class SettingsChoiceTest {
             expectPixel("reader_progress_slider", 0.75f, 0.5f, controls.secondaryContainer)
             expectPixel("reader_progress_slider", 0.2f, 0.5f, controls.primary)
         }
+    }
+
+    @Composable
+    private fun TestReaderChrome(palette: ReaderColorPalette, page: Color, visible: Boolean = true, notices: SnackbarHostState? = null) {
+        ReaderChromeScaffold(
+            bookTitle = "书", chapterTitle = "章",
+            overallProgress = 0.4f, isBookmarked = false, controlsVisible = visible,
+            canGoPreviousChapter = true, canGoNextChapter = true, palette = palette,
+            snackbarHostState = notices, onNavigateBack = {}, onOpenToc = {},
+            onOpenSearch = {}, onReturnFromSearch = null, onStayAtSearchResult = {}, onToggleBookmark = {}, onPreviousChapter = {},
+            onNextChapter = {}, onSeekPreview = {}, onSeekFinished = {}, onOpenSettings = {},
+            readerContent = { Box(it.background(page)) },
+        )
+    }
+
+    @Test @Config(qualifiers = "w411dp-h891dp")
+    fun noticeFollowsTheExitingToolbarUntilTheToolbarClearsTheScreen() {
+        val visible = mutableStateOf(true)
+        val notices = SnackbarHostState()
+        ui.setContent {
+            val palette = resolveReaderPalette(ReaderTheme.SYSTEM, false, MaterialTheme.colorScheme)
+            TestReaderChrome(palette, Color.White, visible.value, notices)
+            LaunchedEffect(Unit) { notices.showSnackbar("通知", duration = SnackbarDuration.Indefinite) }
+        }
+        val notice = ui.onNodeWithText("通知")
+        val start = notice.getUnclippedBoundsInRoot().top
+        val bottom = ui.onRoot().getUnclippedBoundsInRoot().bottom
+        val capsule = ui.onNodeWithTag("reader_bottom_capsule")
+        ui.mainClock.autoAdvance = false
+        ui.runOnIdle { visible.value = false }
+        var lastTop = capsule.getUnclippedBoundsInRoot().top
+        var movedTogether = false
+        repeat(22) {
+            ui.mainClock.advanceTimeByFrame()
+            if (ui.onAllNodesWithTag("reader_bottom_capsule").fetchSemanticsNodes().isNotEmpty()) {
+                lastTop = capsule.getUnclippedBoundsInRoot().top
+                val noticeTop = notice.getUnclippedBoundsInRoot().top
+                if (noticeTop > start + 4.dp && lastTop < bottom - 4.dp) movedTogether = true
+            }
+        }
+        assertTrue("notice should move with the visible toolbar", movedTogether)
+        assertTrue("toolbar disappeared at $lastTop, screen ends at $bottom", lastTop >= bottom - 2.dp)
+        assertTrue(notice.getUnclippedBoundsInRoot().top > start)
+        ui.mainClock.autoAdvance = true
     }
 
     private fun verifyChoices(dynamicColor: Boolean = true, largeType: Boolean = false) {

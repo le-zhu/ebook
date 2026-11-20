@@ -1,6 +1,8 @@
 package com.example
 
 import android.net.Uri
+import androidx.activity.BackEventCompat
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.graphics.toPixelMap
@@ -22,6 +24,7 @@ import android.view.ViewGroup
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.example.model.LayoutMode
+import com.example.model.ReaderTheme
 import com.example.ui.reader.ReaderViewModel
 import com.example.ui.reader.ReaderPanel
 import org.junit.Assert.*
@@ -66,6 +69,59 @@ class ReaderActionsTest {
         if (this is ViewPager) return this
         if (this is ViewGroup) for (i in 0 until childCount) getChildAt(i).findPager()?.let { return it }
         return null
+    }
+
+    private fun importTestBook(title: String): String {
+        val app = ui.activity.application as ReaderApplication
+        val uri = Uri.parse("content://reader.test/example.epub")
+        val bytes = epub(title)
+        shadowOf(app.contentResolver).registerInputStreamSupplier(uri) { bytes.inputStream() }
+        return runBlocking { app.library.import(uri).first.id }
+    }
+
+    @Test @Config(qualifiers = "w640dp-h320dp-land")
+    fun shortWindowCanScrollToBookDetailActions() {
+        val id = importTestBook("书籍详情")
+        find("book_grid_card_$id").performTouchInput { longClick() }
+        val sheet = find("book_detail_sheet")
+        sheet.performTouchInput { swipeUp() }
+        for (tag in listOf("book_detail_read_button", "book_detail_remove_button")) {
+            val button = find(tag)
+            val bounds = button.fetchSemanticsNode().boundsInRoot
+            assertTrue("$tag: $bounds", bounds.height >= with(ui.density) { 47.dp.toPx() })
+        }
+        find("book_detail_read_button").performTouchInput { click() }
+        find("reader_top_bar").assertIsDisplayed()
+    }
+
+    @Test @Config(qualifiers = "w411dp-h891dp-notnight")
+    fun cancelledShelfPreviewPreservesDarkReaderSystemBars() {
+        val id = importTestBook("系统栏")
+        val app = ui.activity.application as ReaderApplication
+        runBlocking { app.library.updatePreferences { it.copy(theme = ReaderTheme.AMOLED_BLACK) } }
+        find("book_grid_card_$id").performClick()
+        find("reader_top_bar").assertIsDisplayed()
+        val window = ui.activity.window
+        val bars = WindowCompat.getInsetsController(window, window.decorView)
+        val dispatcher = ui.activity.onBackPressedDispatcher
+        fun preview() {
+            ui.runOnIdle { dispatcher.dispatchOnBackStarted(BackEventCompat(0f, 50f, 0f, BackEventCompat.EDGE_LEFT)) }
+            ui.runOnIdle { dispatcher.dispatchOnBackProgressed(BackEventCompat(50f, 50f, .6f, BackEventCompat.EDGE_LEFT)) }
+            find("bookshelf_sort_button")
+            assertFalse(bars.isAppearanceLightStatusBars)
+            assertFalse(bars.isAppearanceLightNavigationBars)
+        }
+        assertFalse(bars.isAppearanceLightStatusBars)
+        preview()
+        ui.runOnIdle { dispatcher.dispatchOnBackCancelled() }
+        ui.onAllNodesWithTag("bookshelf_sort_button").assertCountEquals(0)
+        assertFalse("reader status bar after cancellation", bars.isAppearanceLightStatusBars)
+        assertFalse("reader navigation bar after cancellation", bars.isAppearanceLightNavigationBars)
+        preview()
+        ui.runOnIdle { dispatcher.onBackPressed() }
+        ui.onAllNodesWithTag("reader_top_bar").assertCountEquals(0)
+        assertTrue(bars.isAppearanceLightStatusBars)
+        assertTrue(bars.isAppearanceLightNavigationBars)
     }
 
     @Test fun pinchChangesOneGridStepAndKeepsBookTapsSeparate() {
