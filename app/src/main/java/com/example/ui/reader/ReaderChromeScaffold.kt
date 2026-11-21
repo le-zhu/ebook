@@ -60,6 +60,7 @@ import androidx.compose.material.icons.rounded.Search
 import com.example.ui.EbookTextButton
 import com.example.R
 import com.example.ui.EbookActionButton
+import com.example.ui.EqualButtonGroup
 import com.example.ui.EbookSnackbarHost
 import com.example.ui.theme.ReaderColorPalette
 import com.example.ui.theme.TallControlHeight
@@ -349,13 +350,7 @@ private fun FloatingReaderControlCapsule(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Secondary bottom actions row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            EqualButtonGroup(Modifier.padding(horizontal = 4.dp)) {
                 EbookActionButton(
                     label = stringResource(R.string.reader_toc_label),
                     icon = Icons.AutoMirrored.Rounded.FormatListBulleted,

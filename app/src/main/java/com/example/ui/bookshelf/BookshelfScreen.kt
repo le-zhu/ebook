@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,11 +20,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -31,7 +32,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.Sort
@@ -50,7 +53,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -84,12 +86,12 @@ import com.example.R
 import com.example.model.Book
 import com.example.ui.EbookSnackbarHost
 import com.example.ui.EbookActionButton
+import com.example.ui.EqualButtonGroup
 import com.example.ui.EbookBadge
-import com.example.ui.actionLabelStyle
 import com.example.ui.EbookBottomSheet
-import com.example.ui.sheetVerticalScroll
+import com.example.ui.SheetFixedContent
+import com.example.ui.SheetScrollBody
 import com.example.ui.theme.SystemBarsAppearanceEffect
-import com.example.ui.layoutChoiceHeight
 import com.example.ui.theme.TallControlHeight
 import com.example.ui.theme.FloatingPanelElevation
 import kotlinx.coroutines.launch
@@ -500,144 +502,84 @@ private fun BookDetailBottomSheet(
     onReadClick: () -> Unit,
     onRemoveClick: () -> Unit,
 ) {
-    EbookBottomSheet(onDismiss) {
-        Column(
-            modifier = Modifier
-                .testTag("book_detail_sheet")
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .sheetVerticalScroll()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-            ) {
-                BookCoverArtwork(
-                    book = book,
-                    compact = true,
-                    modifier = Modifier
-                        .width(86.dp)
-                        .aspectRatio(2f / 3f),
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
+    EbookBottomSheet(onDismiss, Modifier.testTag("book_detail_sheet").padding(bottom = 24.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f, fill = false)) {
+            // Reserve space for the synopsis even when metadata is tall in landscape or large type.
+            val sectionLimit = maxHeight / 2
+            Column {
+                SheetFixedContent {
+                    BookDetailHeader(book, Modifier.heightIn(max = sectionLimit))
+                    Spacer(Modifier.height(16.dp))
                     Text(
-                        text = book.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                        text = stringResource(R.string.book_detail_synopsis),
+                        style = MaterialTheme.typography.labelLarge,
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                val synopsis = remember(book.description) { synopsisText(book.description) }
+                SheetScrollBody(
+                    contentPadding = PaddingValues(vertical = 12.dp),
+                    modifier = Modifier.heightIn(max = sectionLimit).testTag("book_detail_synopsis_viewport"),
+                ) {
                     Text(
-                        text = book.author,
+                        text = synopsis.ifBlank { stringResource(R.string.book_detail_no_synopsis) },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        EbookBadge(book.fileSizeLabel)
-                        EbookBadge("EPUB")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "${stringResource(R.string.book_detail_publisher)}：${book.publisher}",
-                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Progress summary container
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.book_detail_current_chapter),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "${book.progressPercent}%",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = book.currentChapterTitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    BookProgressBar(book.progress, Modifier.fillMaxWidth())
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.book_detail_synopsis),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = book.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+        }
+        SheetFixedContent {
             HorizontalDivider()
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                OutlinedButton(
+            EqualButtonGroup {
+                EbookActionButton(
+                    label = stringResource(R.string.book_detail_remove),
+                    icon = Icons.Rounded.DeleteOutline,
                     onClick = onRemoveClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = layoutChoiceHeight())
-                        .testTag("book_detail_remove_button"),
-                    shape = MaterialTheme.shapes.medium,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.DeleteOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.book_detail_remove),
-                        style = actionLabelStyle,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+                    modifier = Modifier.testTag("book_detail_remove_button"),
+                    destructive = true,
+                )
 
                 EbookActionButton(
                     label = stringResource(if (book.progressPercent > 0) R.string.book_detail_continue_reading else R.string.book_detail_start_reading),
                     icon = Icons.AutoMirrored.Rounded.MenuBook,
                     onClick = onReadClick,
-                    modifier = Modifier.weight(1.25f).testTag("book_detail_read_button"),
+                    modifier = Modifier.testTag("book_detail_read_button"),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookDetailHeader(book: Book, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        BookCoverArtwork(book, compact = true, modifier = Modifier.widthIn(max = 86.dp).aspectRatio(2f / 3f))
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = book.title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // In a short window the metadata can overflow, while the cover and title stay pinned.
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState(), overscrollEffect = null)) {
+                Spacer(Modifier.height(4.dp))
+                Text(book.author, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EbookBadge(book.fileSizeLabel)
+                    EbookBadge("EPUB")
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "${stringResource(R.string.book_detail_publisher)}：${book.publisher}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

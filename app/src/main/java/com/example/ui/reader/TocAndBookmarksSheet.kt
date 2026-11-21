@@ -2,6 +2,7 @@ package com.example.ui.reader
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,6 +36,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,14 +53,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.ui.EbookActionButton
+import com.example.ui.ButtonGroupGapFraction
 import com.example.ui.EbookBadge
 import com.example.ui.layoutChoiceHeight
 import com.example.ui.theme.ListSheetHeightFraction
 import com.example.ui.theme.TallControlHeight
 import com.example.ui.EbookBottomSheet
+import com.example.ui.SheetFixedContent
+import com.example.ui.SheetSidePadding
+import com.example.ui.SheetScrollSection
 import com.example.ui.sheetPagerGestures
 import com.example.ui.sheetScrollGestures
 import com.example.ui.EbookSnackbarHost
@@ -98,19 +105,13 @@ fun TocAndBookmarksSheet(
     )
     val bookmarkListState = rememberLazyListState()
 
-    EbookBottomSheet(onDismiss) {
-        Column(
-            modifier = Modifier
-                .testTag("toc_sheet")
-                .fillMaxWidth()
-                .fillMaxHeight(ListSheetHeightFraction)
-                .navigationBarsPadding(),
-        ) {
+    EbookBottomSheet(onDismiss, Modifier.testTag("toc_sheet").fillMaxHeight(ListSheetHeightFraction)) {
+        SheetFixedContent {
             // Book title summary header
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                    .padding(vertical = 4.dp),
             ) {
                 Text(
                     text = book.title,
@@ -128,28 +129,41 @@ fun TocAndBookmarksSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            PrimaryTabRow(
-                selectedTabIndex = pager.currentPage,
-                containerColor = MaterialTheme.colorScheme.surface,
-            ) {
-                Tab(
-                    selected = pager.currentPage == 0,
-                    onClick = { selectPage(0) },
-                    text = { Text(stringResource(R.string.sheet_tab_toc)) },
-                    modifier = Modifier.testTag("sheet_tab_toc"),
-                )
-                Tab(
-                    selected = pager.currentPage == 1,
-                    onClick = { selectPage(1) },
-                    text = {
-                        val label = stringResource(R.string.sheet_tab_bookmarks)
-                        Text(if (bookmarks.isEmpty()) label else "$label (${bookmarks.size})")
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val halfGap = maxWidth * (ButtonGroupGapFraction / 2)
+                PrimaryTabRow(
+                    selectedTabIndex = pager.currentPage,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    divider = {},
+                    indicator = {
+                        TabRowDefaults.PrimaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(pager.currentPage, matchContentSize = true)
+                                .offset(x = halfGap * (pager.currentPage + pager.currentPageOffsetFraction - 0.5f))
+                                .padding(horizontal = halfGap / 2),
+                            width = Dp.Unspecified,
+                        )
                     },
-                    modifier = Modifier.testTag("sheet_tab_bookmarks"),
-                )
+                ) {
+                    Tab(
+                        selected = pager.currentPage == 0,
+                        onClick = { selectPage(0) },
+                        text = { Text(stringResource(R.string.sheet_tab_toc)) },
+                        modifier = Modifier.padding(end = halfGap).testTag("sheet_tab_toc"),
+                    )
+                    Tab(
+                        selected = pager.currentPage == 1,
+                        onClick = { selectPage(1) },
+                        text = {
+                            val label = stringResource(R.string.sheet_tab_bookmarks)
+                            Text(if (bookmarks.isEmpty()) label else "$label (${bookmarks.size})")
+                        },
+                        modifier = Modifier.padding(start = halfGap).testTag("sheet_tab_bookmarks"),
+                    )
+                }
             }
-
-            Box(Modifier.fillMaxWidth().weight(1f)) {
+        }
+        SheetScrollSection { viewport ->
+            Box(viewport) {
                 HorizontalPager(
                     state = pager,
                     modifier = Modifier.fillMaxSize().testTag("reader_tabs_pager")
@@ -170,7 +184,7 @@ fun TocAndBookmarksSheet(
                         }
                     }
                 }
-                EbookSnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+                EbookSnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(horizontal = SheetSidePadding, vertical = 16.dp))
             }
         }
     }
@@ -189,7 +203,7 @@ private fun TocList(
         modifier = Modifier.fillMaxSize().sheetScrollGestures(state).testTag("toc_list"),
         state = state,
         overscrollEffect = null,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        contentPadding = PaddingValues(horizontal = SheetSidePadding, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (entries.isEmpty()) item {
@@ -217,14 +231,14 @@ private fun BookmarksTab(
             label = stringResource(R.string.sheet_add_bookmark_here),
             icon = Icons.Rounded.BookmarkAdd,
             onClick = onAdd,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = SheetSidePadding, vertical = 12.dp)
                 .testTag("sheet_add_bookmark_button"),
         )
         LazyColumn(
             state = state,
             modifier = Modifier.fillMaxWidth().weight(1f).sheetScrollGestures(state).testTag("bookmarks_list"),
             overscrollEffect = null,
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
+            contentPadding = PaddingValues(start = SheetSidePadding, end = SheetSidePadding, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (bookmarks.isEmpty()) item { BookmarksEmptyState(Modifier.fillParentMaxSize()) }

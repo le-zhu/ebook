@@ -1,16 +1,23 @@
 package com.example.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.BottomSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scrim
 import androidx.compose.material3.SheetValue
@@ -23,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -37,6 +45,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun EbookBottomSheet(
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val state = rememberBottomSheetState(
@@ -85,11 +94,42 @@ internal fun EbookBottomSheet(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp,
                 shadowElevation = FloatingPanelElevation,
-                content = content,
-            )
+            ) {
+                Column(modifier.fillMaxWidth(), content = content)
+            }
         }
         if (state.hasExpandedState) LaunchedEffect(state) {
             if (state.targetValue == SheetValue.Hidden) state.show()
         }
+    }
+}
+
+@Composable
+internal fun SheetFixedContent(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = SheetSidePadding), content = content)
+}
+
+internal val SheetSidePadding = 24.dp
+
+@Composable
+internal fun ColumnScope.SheetScrollSection(fill: Boolean = true, content: @Composable (Modifier) -> Unit) {
+    HorizontalDivider(Modifier.padding(horizontal = SheetSidePadding).testTag("sheet_section_divider"))
+    content(Modifier.fillMaxWidth().weight(1f, fill = fill))
+}
+
+@Composable
+internal fun ColumnScope.SheetScrollBody(
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val scroll = rememberScrollState()
+    SheetScrollSection(fill = false) { viewport ->
+        Column(
+            viewport.then(modifier).sheetScrollGestures(scroll, sidePull = true)
+                .verticalScroll(scroll, overscrollEffect = null)
+                .padding(horizontal = SheetSidePadding).padding(contentPadding),
+            content = content,
+        )
     }
 }

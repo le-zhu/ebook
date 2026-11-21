@@ -9,8 +9,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -109,12 +107,6 @@ private fun rememberSheetEdge(horizontal: Boolean): SheetEdge {
 internal fun Modifier.sheetPagerGestures(): Modifier {
     val edge = rememberSheetEdge(horizontal = true)
     return clipToBounds().graphicsLayer { translationX = edge.offset }.nestedScroll(edge)
-}
-
-@Composable
-internal fun Modifier.sheetVerticalScroll(): Modifier {
-    val state = rememberScrollState()
-    return sheetScrollGestures(state, sidePull = true).verticalScroll(state, overscrollEffect = null)
 }
 
 @Composable

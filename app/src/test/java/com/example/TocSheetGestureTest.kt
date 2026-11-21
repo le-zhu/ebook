@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
@@ -23,15 +24,18 @@ import com.example.model.Bookmark
 import com.example.model.TocItem
 import com.example.ui.reader.TocAndBookmarksSheet
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 internal fun SemanticsNodeInteraction.checkSinglePageSidePull() {
     val start = getUnclippedBoundsInRoot()
+    val visibleWidth = fetchSemanticsNode().boundsInRoot.width
     for (direction in listOf(-1f, 1f)) {
         performTouchInput {
             down(center)
@@ -40,6 +44,7 @@ internal fun SemanticsNodeInteraction.checkSinglePageSidePull() {
         val dragged = getUnclippedBoundsInRoot()
         val shift = (dragged.left - start.left) * direction
         assertTrue("side pull: $shift", shift > 0.dp && shift <= 20.dp)
+        assertEquals(visibleWidth, fetchSemanticsNode().boundsInRoot.width, 1f)
         assertEquals(start.top, dragged.top)
         performTouchInput { up() }
         assertEquals(start, getUnclippedBoundsInRoot())
@@ -77,6 +82,59 @@ class TocSheetGestureTest {
             ui.onNodeWithTag("toc_item_toc.$index").assertIsSelected()
             assertEquals(titleLeft(0), titleLeft(1))
         }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun directoryDividerRowsAndBookmarksUseTheSamePanelMargins() {
+        open(count = 2)
+        val dialog = ui.onNode(isDialog())
+        val bounds = dialog.getUnclippedBoundsInRoot()
+        val left = bounds.left + 24.dp
+        val right = bounds.right - 24.dp
+        fun checkEdges(tag: String) {
+            val item = ui.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+            assertEquals(left, item.left)
+            assertEquals(right, item.right)
+        }
+        assertEquals(left, ui.onNodeWithText("书名").getUnclippedBoundsInRoot().left)
+        checkEdges("sheet_section_divider")
+        checkEdges("toc_item_toc.0")
+        val pixels = dialog.captureToImage().toPixelMap()
+        val tabBottom = ui.onNodeWithTag("sheet_tab_toc").getUnclippedBoundsInRoot().bottom
+        val divider = ui.onNodeWithTag("sheet_section_divider").getUnclippedBoundsInRoot()
+        assertEquals(tabBottom, divider.top)
+        val y = with(ui.density) { (divider.top - bounds.top).roundToPx() }
+        val margin = with(ui.density) { 24.dp.roundToPx() }
+        val line = pixels[margin + 2, y]
+        assertNotEquals(line, pixels[margin - 2, y])
+        assertEquals(line, pixels[pixels.width - margin - 2, y])
+        assertNotEquals(line, pixels[pixels.width - margin + 2, y])
+        ui.onNodeWithTag("sheet_tab_bookmarks").performClick()
+        checkEdges("sheet_add_bookmark_button")
+        checkEdges("bookmark_card_b0")
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun pagingKeepsBothInnerMarginsAndDrawsToTheSheetEdge() {
+        open(count = 2)
+        val dialog = ui.onNode(isDialog())
+        val sheet = dialog.getUnclippedBoundsInRoot()
+        val pager = ui.onNodeWithTag("reader_tabs_pager")
+        assertEquals(sheet.left, pager.getUnclippedBoundsInRoot().left)
+        assertEquals(sheet.right, pager.getUnclippedBoundsInRoot().right)
+        pager.performTouchInput { down(percentOffset(.8f, .5f)); moveTo(percentOffset(.3f, .5f), 150) }
+        val item = ui.onNodeWithTag("toc_item_toc.0").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val add = ui.onNodeWithTag("sheet_add_bookmark_button").assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertEquals(48f, (add.left - item.right).value, 1f)
+        val pixels = dialog.captureToImage().toPixelMap()
+        with(ui.density) {
+            val y = ((item.top + item.bottom) / 2 - sheet.top).roundToPx()
+            val gap = ((item.right + add.left) / 2 - sheet.left).roundToPx()
+            val fill = pixels[(item.right - sheet.left - 20.dp).roundToPx(), y]
+            assertNotEquals(fill, pixels[gap, y])
+            assertEquals(fill, pixels[2.dp.roundToPx(), y])
+        }
+        pager.performTouchInput { up() }
     }
 
     @Test fun unreleasedDragCanBringThePanelBackFromTheBottomEdge() {

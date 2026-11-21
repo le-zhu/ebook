@@ -14,8 +14,8 @@ android {
     applicationId = "com.aistudio.epubreader.mkyrqt"
     minSdk = 24
     targetSdk = 36
-    versionCode = 35
-    versionName = "1.8"
+    versionCode = 39
+    versionName = "1.9"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -74,6 +74,7 @@ dependencies {
   implementation("androidx.fragment:fragment:1.9.0")
   implementation(libs.readium.navigator)
   implementation(libs.readium.streamer)
+  implementation(libs.jsoup)
   coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)

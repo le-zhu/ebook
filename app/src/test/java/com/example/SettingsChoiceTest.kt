@@ -59,7 +59,10 @@ class SettingsChoiceTest {
     }
 
     @Test @Config(qualifiers = "w411dp-h891dp-notnight")
-    fun lightOptionsUseTheCurrentColorScheme() = verifyChoices()
+    fun lightOptionsUseTheCurrentColorScheme() {
+        verifyChoices()
+        ui.assertFourPercentRow(*ReaderTheme.entries.map { "theme_swatch_${it.name.lowercase()}" }.toTypedArray())
+    }
 
     @Test @Config(qualifiers = "w360dp-h400dp")
     fun compactSettingsScrollVerticallyAndLetSlidersHandleHorizontalDrags() {
@@ -76,7 +79,11 @@ class SettingsChoiceTest {
             )
         }
         val sheet = ui.onNodeWithTag("settings_sheet")
-        ui.onNodeWithText("排版与阅读设置").checkSinglePageSidePull()
+        val body = ui.onNodeWithTag("settings_body")
+        val fixed = listOf(ui.onNodeWithText("排版与阅读设置"), ui.onNodeWithTag("settings_reset_button"),
+            ui.onNodeWithTag("layout_GLOBAL"), ui.onNodeWithText("这里的修改会应用到所有使用默认排版的书。"))
+        val fixedBounds = fixed.map { it.getUnclippedBoundsInRoot() }
+        ui.onNodeWithText("阅读主题").checkSinglePageSidePull()
         // Bring each control into view, including the last one on a small screen.
         for (tag in listOf("font_size_slider", "line_height_slider", "margin_slider")) {
             val before = prefs.value
@@ -90,10 +97,19 @@ class SettingsChoiceTest {
             slider.performTouchInput { up() }
             assertNotEquals(before, prefs.value)
         }
-        sheet.performTouchInput { swipeDown(durationMillis = 120) }
+        val range = body.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange]
+        body.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, range.maxValue() - range.value()) }
+        val last = ui.onNodeWithTag("margin_slider")
+        val top = last.getUnclippedBoundsInRoot().top
+        body.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, -70.dp.toPx()), 120) }
+        assertTrue(last.getUnclippedBoundsInRoot().top < top)
+        assertEquals(fixedBounds, fixed.map { it.getUnclippedBoundsInRoot() })
+        body.performTouchInput { up() }
+        assertEquals(top, last.getUnclippedBoundsInRoot().top)
+        body.performTouchInput { swipeDown(durationMillis = 120) }
         sheet.assertIsDisplayed()
-        ui.onNodeWithText("排版与阅读设置").performScrollTo()
-        sheet.performTouchInput { swipeDown(durationMillis = 140) }
+        body.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -range.value()) }
+        body.performTouchInput { swipeDown(durationMillis = 140) }
         sheet.assertDoesNotExist()
     }
 
@@ -217,15 +233,12 @@ class SettingsChoiceTest {
         }
         for (row in listOf(listOf("layout_ORIGINAL", "layout_GLOBAL", "layout_CUSTOM"),
                            listOf("page_mode_paginated", "page_mode_scrolled"))) {
-            for ((index, tag) in row.withIndex()) {
+            if (!largeType) ui.assertFourPercentRow(*row.toTypedArray())
+            for (tag in row) {
                 val selected = tag == "layout_GLOBAL" || tag == "page_mode_paginated"
-                val node = ui.onNodeWithTag(tag).performScrollTo()
+                val node = ui.onNodeWithTag(tag)
+                if (tag.startsWith("layout_")) node.assertIsDisplayed() else node.performScrollTo()
                 if (selected) node.assertIsSelected() else node.assertIsNotSelected()
-                val bounds = node.getUnclippedBoundsInRoot()
-                if (index > 0) {
-                    val previous = ui.onNodeWithTag(row[index - 1]).getUnclippedBoundsInRoot()
-                    assertTrue(bounds.left - previous.right >= 6.dp)
-                }
                 val pixels = node.captureToImage().toPixelMap()
                 val fill = pixels[pixels.width / 2, 2]
                 val expected = if (selected) colors.secondaryContainer else colors.surfaceContainer

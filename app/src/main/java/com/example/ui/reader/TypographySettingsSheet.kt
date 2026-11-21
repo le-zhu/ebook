@@ -13,11 +13,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.ViewDay
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -52,7 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.ui.EbookBottomSheet
-import com.example.ui.sheetVerticalScroll
+import com.example.ui.SheetFixedContent
+import com.example.ui.EqualButtonGroup
+import com.example.ui.SheetScrollBody
 import com.example.ui.EbookBadge
 import com.example.ui.layoutChoiceHeight
 import com.example.ui.actionLabelStyle
@@ -87,16 +88,8 @@ fun TypographySettingsSheet(
 ) {
     val isSystemDark = isSystemInDarkTheme()
 
-    EbookBottomSheet(onDismiss) {
-        Column(
-            modifier = Modifier
-                .testTag("settings_sheet")
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .sheetVerticalScroll()
-                .padding(horizontal = 22.dp)
-                .padding(bottom = 24.dp),
-        ) {
+    EbookBottomSheet(onDismiss, Modifier.testTag("settings_sheet")) {
+        SheetFixedContent {
             // Sheet Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -117,11 +110,11 @@ fun TypographySettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EqualButtonGroup(Modifier.selectableGroup()) {
                 val modes = listOf(LayoutMode.ORIGINAL to "原书排版", LayoutMode.GLOBAL to "默认排版", LayoutMode.CUSTOM to "本书自定义")
                 modes.forEach { (choice, label) ->
                     SettingChoice(label, choice == mode, { onModeChange(choice) },
-                        Modifier.weight(1f).testTag("layout_" + choice.name))
+                        Modifier.testTag("layout_" + choice.name))
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -133,8 +126,16 @@ fun TypographySettingsSheet(
                 },
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (mode == LayoutMode.ORIGINAL) return@Column
-            Spacer(Modifier.height(16.dp))
+        }
+        if (mode == LayoutMode.ORIGINAL) {
+            Spacer(Modifier.height(24.dp))
+            return@EbookBottomSheet
+        }
+        Spacer(Modifier.height(16.dp))
+        SheetScrollBody(
+            contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
+            modifier = Modifier.testTag("settings_body"),
+        ) {
             // 5 Reading Themes Circular Swatches
             Text(
                 text = stringResource(R.string.settings_theme_label),
@@ -151,10 +152,7 @@ fun TypographySettingsSheet(
                 ReaderTheme.AMOLED_BLACK to R.string.settings_theme_amoled,
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
+            EqualButtonGroup {
                 themeItems.forEach { (theme, labelRes) ->
                     val previewPalette = resolveReaderPalette(theme, isSystemDark, systemColors)
                     val selected = preferences.theme == theme
@@ -166,13 +164,11 @@ fun TypographySettingsSheet(
                         isSystemTheme = theme == ReaderTheme.SYSTEM,
                         selected = selected,
                         onClick = { onThemeSelected(theme) },
-                        modifier = Modifier.weight(1f).testTag("theme_swatch_${theme.name.lowercase()}"),
+                        modifier = Modifier.testTag("theme_swatch_${theme.name.lowercase()}"),
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider()
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
@@ -186,15 +182,12 @@ fun TypographySettingsSheet(
                 PageTurnMode.PAGINATED to R.string.settings_mode_paginated,
                 PageTurnMode.SCROLLED to R.string.settings_mode_scrolled,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth().selectableGroup().testTag("settings_page_turn_segmented"),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            EqualButtonGroup(Modifier.selectableGroup().testTag("settings_page_turn_segmented")) {
                 modes.forEach { (choice, labelRes) ->
                     SettingChoice(
                         label = stringResource(labelRes), selected = preferences.pageTurnMode == choice,
                         onClick = { onPageTurnModeSelected(choice) },
-                        modifier = Modifier.weight(1f).testTag("page_mode_" + choice.name.lowercase()),
+                        modifier = Modifier.testTag("page_mode_" + choice.name.lowercase()),
                         icon = if (choice == PageTurnMode.PAGINATED) Icons.AutoMirrored.Rounded.MenuBook else Icons.Rounded.ViewDay,
                     )
                 }

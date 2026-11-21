@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.theme.ListSheetHeightFraction
 import com.example.ui.theme.TallControlHeight
 import com.example.ui.EbookBottomSheet
+import com.example.ui.SheetFixedContent
+import com.example.ui.SheetSidePadding
+import com.example.ui.SheetScrollSection
 import com.example.ui.sheetScrollGestures
 import com.example.ui.EbookTextButton
 import org.readium.r2.shared.publication.Locator
@@ -43,45 +46,48 @@ internal fun BookSearchSheet(
     val list = rememberLazyListState()
     val focus = remember { FocusRequester() }
     LaunchedEffect(state.query) { list.scrollToItem(0) }
-    EbookBottomSheet(onDismiss) {
-        Column(Modifier.testTag("search_sheet").fillMaxWidth().fillMaxHeight(ListSheetHeightFraction).imePadding().navigationBarsPadding()) {
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Text("全书搜索", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = state.query, onValueChange = onQuery, singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
-                    placeholder = { Text("输入人名或原文") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { submit() }),
-                    trailingIcon = { EbookTextButton("搜索", submit, enabled = state.query.isNotBlank()) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = TallControlHeight).focusRequester(focus).testTag("search_query"),
-                )
-                LaunchedEffect(Unit) { if (state.query.isEmpty()) focus.requestFocus() }
-                Spacer(Modifier.height(8.dp))
-                val summary = when {
-                    state.error != null -> state.error
-                    state.loading -> "正在查找…"
-                    !state.submitted -> ""
-                    state.hits.isEmpty() -> "没有找到匹配的正文"
-                    state.hasMore -> "已显示 ${state.hits.size} 处匹配"
-                    else -> "共 ${state.hits.size} 处匹配"
-                }
-                if (summary.isNotEmpty()) {
-                    Text(summary, style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(8.dp))
-                }
+    EbookBottomSheet(onDismiss, Modifier.testTag("search_sheet").fillMaxHeight(ListSheetHeightFraction)) {
+        SheetFixedContent {
+            Text("全书搜索", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.query, onValueChange = onQuery, singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                placeholder = { Text("输入人名或原文") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { submit() }),
+                trailingIcon = { EbookTextButton("搜索", submit, enabled = state.query.isNotBlank()) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = TallControlHeight).focusRequester(focus).testTag("search_query"),
+            )
+            LaunchedEffect(Unit) { if (state.query.isEmpty()) focus.requestFocus() }
+            Spacer(Modifier.height(8.dp))
+            val summary = when {
+                state.error != null -> state.error
+                state.loading -> "正在查找…"
+                !state.submitted -> ""
+                state.hits.isEmpty() -> "没有找到匹配的正文"
+                state.hasMore -> "已显示 ${state.hits.size} 处匹配"
+                else -> "共 ${state.hits.size} 处匹配"
             }
+            if (summary.isNotEmpty()) {
+                Text(summary, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+        SheetScrollSection { viewport ->
             LazyColumn(
                 state = list,
-                modifier = Modifier.fillMaxWidth().weight(1f).sheetScrollGestures(list, sidePull = true).testTag("search_results"),
+                modifier = viewport.sheetScrollGestures(list, sidePull = true).testTag("search_results"),
                 overscrollEffect = null,
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(start = SheetSidePadding, end = SheetSidePadding, bottom = 8.dp),
             ) {
                 itemsIndexed(state.hits) { index, hit ->
                     Column(Modifier.fillMaxWidth().clickable { onRead(hit) }.testTag("search_hit_$index").padding(vertical = 12.dp)) {
-                        Text(chapterTitle(hit), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(4.dp))
+                        val title = chapterTitle(hit)
+                        if (title.isNotBlank()) {
+                            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(4.dp))
+                        }
                         val quote = hit.text
                         Text(buildAnnotatedString {
                             append(contextBefore(quote.before.orEmpty()))

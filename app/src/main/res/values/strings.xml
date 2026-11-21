@@ -25,7 +25,7 @@
     <string name="book_detail_start_reading">开始阅读</string>
     <string name="book_detail_remove">从书架移除</string>
     <string name="book_detail_synopsis">内容简介</string>
-    <string name="book_detail_current_chapter">当前读至</string>
+    <string name="book_detail_no_synopsis">暂无简介</string>
     <string name="book_detail_publisher">出版方</string>
 
     <!-- Reader -->

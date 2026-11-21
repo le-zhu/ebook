@@ -71,20 +71,56 @@ class ReaderActionsTest {
         return null
     }
 
-    private fun importTestBook(title: String): String {
+    private fun importTestBook(title: String, description: String? = null): String {
         val app = ui.activity.application as ReaderApplication
         val uri = Uri.parse("content://reader.test/example.epub")
-        val bytes = epub(title)
+        val bytes = epub(title, description = description)
         shadowOf(app.contentResolver).registerInputStreamSupplier(uri) { bytes.inputStream() }
         return runBlocking { app.library.import(uri).first.id }
     }
 
-    @Test @Config(qualifiers = "w640dp-h320dp-land")
-    fun shortWindowCanScrollToBookDetailActions() {
-        val id = importTestBook("书籍详情")
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun longSynopsisScrollsIndependently() = verifySynopsisScrolling()
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) @Config(qualifiers = "w640dp-h320dp-land")
+    fun shortWindowKeepsSynopsisAndActionsAccessible() = verifySynopsisScrolling()
+
+    private fun verifySynopsisScrolling() {
+        val id = importTestBook("书籍详情", (1..60).joinToString("") { "<p>简介第${it}段。</p>" })
         find("book_grid_card_$id").performTouchInput { longClick() }
-        val sheet = find("book_detail_sheet")
-        sheet.performTouchInput { swipeUp() }
+        val viewport = find("book_detail_synopsis_viewport")
+        val heading = ui.onNodeWithText("内容简介")
+        val actions = find("book_detail_read_button")
+        val remove = find("book_detail_remove_button")
+        val headingBounds = heading.getUnclippedBoundsInRoot()
+        val actionBounds = actions.getUnclippedBoundsInRoot()
+        val removeBounds = remove.getUnclippedBoundsInRoot()
+        val range = viewport.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
+        assertTrue(range.maxValue() > 0f)
+        viewport.performTouchInput { swipeUp() }
+        assertTrue(range.value() > 0f)
+        viewport.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.ScrollBy) { it(0f, range.maxValue() - range.value()) }
+        ui.waitForIdle()
+        assertEquals(range.maxValue(), range.value(), 1f)
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        val paragraph = ui.onNodeWithText("简介第60段。", substring = true, useUnmergedTree = true)
+        paragraph.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val text = layouts.single()
+        assertEquals(text.layoutInput.text.length, text.getLineEnd(text.lineCount - 1))
+        assertFalse(text.multiParagraph.didExceedMaxLines)
+        val textTop = paragraph.getUnclippedBoundsInRoot().top
+        viewport.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, -60.dp.toPx()), 120) }
+        assertTrue(paragraph.getUnclippedBoundsInRoot().top < textTop)
+        assertEquals(headingBounds, heading.getUnclippedBoundsInRoot())
+        assertEquals(actionBounds, actions.getUnclippedBoundsInRoot())
+        assertEquals(removeBounds, remove.getUnclippedBoundsInRoot())
+        viewport.performTouchInput { up() }
+        assertEquals(textTop, paragraph.getUnclippedBoundsInRoot().top)
+        viewport.performTouchInput { swipeDown() }
+        assertTrue(range.value() < range.maxValue())
+        assertEquals(headingBounds, heading.getUnclippedBoundsInRoot())
+        assertEquals(actionBounds, actions.getUnclippedBoundsInRoot())
+        assertEquals(removeBounds, remove.getUnclippedBoundsInRoot())
         for (tag in listOf("book_detail_read_button", "book_detail_remove_button")) {
             val button = find(tag)
             val bounds = button.fetchSemanticsNode().boundsInRoot
@@ -92,6 +128,30 @@ class ReaderActionsTest {
         }
         find("book_detail_read_button").performTouchInput { click() }
         find("reader_top_bar").assertIsDisplayed()
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) @Config(qualifiers = "w320dp-h780dp")
+    fun largeTextMovesWholeDetailButtonsOntoSeparateRows() {
+        val previous = org.robolectric.RuntimeEnvironment.getFontScale()
+        try {
+            org.robolectric.RuntimeEnvironment.setFontScale(2f)
+            ui.activityRule.scenario.recreate()
+            val id = importTestBook("大字书籍详情")
+            find("book_grid_card_$id").performTouchInput { longClick() }
+            val read = find("book_detail_read_button").assertIsDisplayed().getUnclippedBoundsInRoot()
+            val remove = find("book_detail_remove_button").getUnclippedBoundsInRoot()
+            val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            ui.onNodeWithText("从书架移除", useUnmergedTree = true).performSemanticsAction(
+                androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult
+            ) { it(layouts) }
+            val text = layouts.single()
+            assertEquals(2f, text.layoutInput.density.fontScale, .01f)
+            assertTrue("buttons overlap at large type: $remove, $read", remove.bottom <= read.top)
+            assertEquals(read.right - read.left, remove.right - remove.left)
+            assertEquals(1, text.lineCount)
+        } finally {
+            org.robolectric.RuntimeEnvironment.setFontScale(previous)
+        }
     }
 
     @Test @Config(qualifiers = "w411dp-h891dp-notnight")
@@ -398,13 +458,16 @@ class ReaderActionsTest {
         }
         find("book_list_card_" + book.id).performTouchInput { longClick() }
         assertEquals(panel, fill("book_detail_sheet", 0.015f, 0.025f))
-        checkBookTrack(ui.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)
-            and hasAnyAncestor(hasTestTag("book_detail_sheet")), useUnmergedTree = true))
+        ui.assertFourPercentRow("book_detail_remove_button", "book_detail_read_button")
+        ui.onNodeWithText("暂无简介").assertExists()
+        ui.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)
+            and hasAnyAncestor(hasTestTag("book_detail_sheet")), useUnmergedTree = true).assertDoesNotExist()
         find("book_detail_read_button").performClick()
         assertEquals(panel, fill("reader_top_bar", 0.15f))
         assertEquals(shelfHeaderBottom, find("reader_top_bar").fetchSemanticsNode().boundsInRoot.bottom, 1f)
         assertEquals(panel, fill("reader_bottom_capsule", 0.05f))
         assertEquals(accentFill, fill("reader_settings_button", 0.25f))
+        ui.assertFourPercentRow("reader_capsule_toc_button", "reader_settings_button")
         val settingsMetrics = actionMetrics("reader_settings_button")
         assertEquals(settingsMetrics, actionMetrics("reader_capsule_toc_button"))
         fun expectBookmarkNotice(message: Int) {
@@ -422,6 +485,7 @@ class ReaderActionsTest {
         assertEquals(panel, fill("sheet_tab_toc", 0.18f))
         assertEquals(panel, fill("sheet_tab_bookmarks", 0.18f))
         find("sheet_tab_toc").assertIsSelected()
+        ui.assertFourPercentRow("sheet_tab_toc", "sheet_tab_bookmarks")
         find("sheet_tab_bookmarks").performClick().assertIsSelected()
         find("sheet_add_bookmark_button").performClick()
         expectBookmarkNotice(R.string.reader_bookmark_added)
@@ -481,7 +545,7 @@ class ReaderActionsTest {
         find("font_size_increase").performScrollTo().performClick()
         ui.waitUntil(10000) { ui.onAllNodesWithText("19 sp").fetchSemanticsNodes().isNotEmpty() }
         ui.waitUntil(10000) { hasLayout(original = false) }
-        find("layout_CUSTOM").performScrollTo().performClick()
+        find("layout_CUSTOM").assertIsDisplayed().performClick()
         ui.waitUntil(10000) { ui.onAllNodes(hasTestTag("layout_CUSTOM") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
         find("margin_slider").performScrollTo().performSemanticsAction(
             androidx.compose.ui.semantics.SemanticsActions.SetProgress
@@ -490,9 +554,9 @@ class ReaderActionsTest {
         find("font_size_increase").performScrollTo().performClick()
         ui.waitUntil(10000) { ui.onAllNodesWithText("20 sp").fetchSemanticsNodes().isNotEmpty() }
         assertEquals(initial + 1, runBlocking { app.library.preferences.first().fontSizeSp })
-        find("layout_GLOBAL").performScrollTo().performClick()
+        find("layout_GLOBAL").assertIsDisplayed().performClick()
         ui.waitUntil(10000) { hasLayout(original = false) }
-        find("layout_ORIGINAL").performScrollTo().performClick()
+        find("layout_ORIGINAL").assertIsDisplayed().performClick()
         ui.waitUntil(10000) { hasLayout(original = true) }
         assertEquals(LayoutMode.ORIGINAL, runBlocking { app.library.layout(id).first().mode })
         ui.onNodeWithTag("font_size_slider").assertDoesNotExist()
@@ -544,9 +608,17 @@ class ReaderActionsTest {
         find("search_query").performImeAction()
         ui.waitUntil(10000) { ui.onAllNodesWithText("已显示 50 处匹配").fetchSemanticsNodes().isNotEmpty() }
 
-        val countBottom = ui.onNodeWithText("已显示 50 处匹配").getUnclippedBoundsInRoot().bottom
+        val count = ui.onNodeWithText("已显示 50 处匹配")
+        val countBounds = count.getUnclippedBoundsInRoot()
+        val divider = find("sheet_section_divider").getUnclippedBoundsInRoot()
+        val dialog = ui.onNode(isDialog()).getUnclippedBoundsInRoot()
         val firstHit = find("search_hit_0")
-        assertEquals(16f, (firstHit.getUnclippedBoundsInRoot().top - countBottom).value, 1f)
+        assertEquals(dialog.left + 24.dp, divider.left)
+        assertEquals(dialog.right - 24.dp, divider.right)
+        assertEquals(divider.left, countBounds.left)
+        assertEquals(divider.left, firstHit.getUnclippedBoundsInRoot().left)
+        assertEquals(8.dp, divider.top - countBounds.bottom)
+        assertEquals(divider.bottom, firstHit.getUnclippedBoundsInRoot().top)
         firstHit.checkSinglePageSidePull()
         val list = find("search_results").performScrollToIndex(50)
         val more = ui.onNodeWithText("显示更多结果")
@@ -557,6 +629,8 @@ class ReaderActionsTest {
         }
         val displacement = bottomRowTop - more.getUnclippedBoundsInRoot().top
         assertTrue(displacement > 16.dp && displacement <= 52.dp)
+        assertEquals(countBounds, count.getUnclippedBoundsInRoot())
+        assertEquals(divider, find("sheet_section_divider").getUnclippedBoundsInRoot())
         list.performTouchInput { up() }
         assertEquals(bottomRowTop, more.getUnclippedBoundsInRoot().top)
         more.performClick()
