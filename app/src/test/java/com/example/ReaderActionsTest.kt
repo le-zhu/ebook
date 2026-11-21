@@ -605,6 +605,7 @@ class ReaderActionsTest {
         find("book_grid_card_$id").performClick()
         find("reader_search").performClick()
         find("search_query").performTextInput("测试词")
+        ui.onNodeWithTag("sheet_section_divider").assertDoesNotExist()
         find("search_query").performImeAction()
         ui.waitUntil(10000) { ui.onAllNodesWithText("已显示 50 处匹配").fetchSemanticsNodes().isNotEmpty() }
 

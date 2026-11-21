@@ -112,8 +112,12 @@ internal fun SheetFixedContent(content: @Composable ColumnScope.() -> Unit) {
 internal val SheetSidePadding = 24.dp
 
 @Composable
-internal fun ColumnScope.SheetScrollSection(fill: Boolean = true, content: @Composable (Modifier) -> Unit) {
-    HorizontalDivider(Modifier.padding(horizontal = SheetSidePadding).testTag("sheet_section_divider"))
+internal fun ColumnScope.SheetScrollSection(
+    fill: Boolean = true,
+    showDivider: Boolean = true,
+    content: @Composable (Modifier) -> Unit,
+) {
+    if (showDivider) HorizontalDivider(Modifier.padding(horizontal = SheetSidePadding).testTag("sheet_section_divider"))
     content(Modifier.fillMaxWidth().weight(1f, fill = fill))
 }
 

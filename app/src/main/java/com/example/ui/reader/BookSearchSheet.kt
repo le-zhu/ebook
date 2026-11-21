@@ -45,6 +45,12 @@ internal fun BookSearchSheet(
     val submit = { if (state.query.isNotBlank()) { keyboard?.hide(); onSubmit() } }
     val list = rememberLazyListState()
     val focus = remember { FocusRequester() }
+    val resultSummary = when {
+        state.hasMore -> "已显示 ${state.hits.size} 处匹配"
+        !state.submitted || state.loading || state.error != null -> null
+        state.hits.isEmpty() -> "没有找到匹配的正文"
+        else -> "共 ${state.hits.size} 处匹配"
+    }
     LaunchedEffect(state.query) { list.scrollToItem(0) }
     EbookBottomSheet(onDismiss, Modifier.testTag("search_sheet").fillMaxHeight(ListSheetHeightFraction)) {
         SheetFixedContent {
@@ -61,20 +67,13 @@ internal fun BookSearchSheet(
             )
             LaunchedEffect(Unit) { if (state.query.isEmpty()) focus.requestFocus() }
             Spacer(Modifier.height(8.dp))
-            val summary = when {
-                state.error != null -> state.error
-                state.loading -> "正在查找…"
-                !state.submitted -> ""
-                state.hits.isEmpty() -> "没有找到匹配的正文"
-                state.hasMore -> "已显示 ${state.hits.size} 处匹配"
-                else -> "共 ${state.hits.size} 处匹配"
-            }
-            if (summary.isNotEmpty()) {
-                Text(summary, style = MaterialTheme.typography.labelLarge)
+            val message = resultSummary ?: state.error ?: if (state.loading) "正在查找…" else null
+            if (message != null) {
+                Text(message, style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
             }
         }
-        SheetScrollSection { viewport ->
+        SheetScrollSection(showDivider = resultSummary != null) { viewport ->
             LazyColumn(
                 state = list,
                 modifier = viewport.sheetScrollGestures(list, sidePull = true).testTag("search_results"),
