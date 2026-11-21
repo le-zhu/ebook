@@ -68,6 +68,17 @@ class TocSheetGestureTest {
         }
     }
 
+    @Test fun selectingAChapterKeepsSiblingTitlesAligned() {
+        open(count = 2)
+        fun titleLeft(index: Int) = ui.onNodeWithText("标题 $index", useUnmergedTree = true)
+            .getUnclippedBoundsInRoot().left
+        for (index in 0..1) {
+            ui.runOnIdle { active = "toc.$index" }
+            ui.onNodeWithTag("toc_item_toc.$index").assertIsSelected()
+            assertEquals(titleLeft(0), titleLeft(1))
+        }
+    }
+
     @Test fun unreleasedDragCanBringThePanelBackFromTheBottomEdge() {
         open()
         val handle = ui.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss) and hasClickAction())
