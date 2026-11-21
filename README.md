@@ -1,12 +1,6 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
-
 # ebook
 
 基于 Jetpack Compose Material 3 和 Readium Kotlin Toolkit 的安卓本地 EPUB 阅读器。
-
-View your app in AI Studio: https://ai.studio/apps/860f9491-ab53-428a-91ad-c48e03a1bc1f
 
 ## 本地运行
 
