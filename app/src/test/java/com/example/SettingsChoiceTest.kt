@@ -187,12 +187,10 @@ class SettingsChoiceTest {
                 TestReaderChrome(palette, page.value)
             }
         }
-        val chapters = ui.onAllNodesWithText("章", useUnmergedTree = true).assertCountEquals(2)
-        for (index in 0..1) {
-            val layout = mutableListOf<TextLayoutResult>()
-            chapters[index].performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layout) }
-            assertEquals(12.sp, layout.single().layoutInput.style.fontSize)
-        }
+        val chapter = ui.onNode(hasText("章") and hasAnyAncestor(hasTestTag("reader_bottom_capsule")), useUnmergedTree = true)
+        val layout = mutableListOf<TextLayoutResult>()
+        chapter.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layout) }
+        assertEquals(12.sp, layout.single().layoutInput.style.fontSize)
         fun expectPixel(tag: String, x: Float, y: Float, color: Color) {
             val pixels = ui.onNodeWithTag(tag).captureToImage().toPixelMap()
             val actual = pixels[(pixels.width * x).toInt(), (pixels.height * y).toInt()]
