@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -66,9 +67,12 @@ class LocalLibrary internal constructor(
     private val layoutLock = Mutex()
     private val pending = mutableMapOf<String, PendingPosition>()
 
-    val books = db.shelfChanges.map { withDb { getActiveBooks(files) } }.distinctUntilChanged()
-    fun observeBook(id: String) = db.shelfChanges.map { withDb { getActiveBook(id, files) } }.distinctUntilChanged()
-    fun observeBookmarks(id: String) = db.bookmarkChanges.map { withDb { getBookmarks(id) } }.distinctUntilChanged()
+    private fun <T> observe(changes: Flow<Long>, query: LibraryDatabase.() -> T) =
+        changes.map { withDb(query) }.distinctUntilChanged()
+
+    val books = observe(db.shelfChanges) { getActiveBooks(files) }
+    fun observeBook(id: String) = observe(db.shelfChanges) { getActiveBook(id, files) }
+    fun observeBookmarks(id: String) = observe(db.bookmarkChanges) { getBookmarks(id) }
     suspend fun description(id: String) = withDb { description(id) }
 
     val preferences = store.data.map { decodePreferences(it[settings]) }.distinctUntilChanged()
@@ -78,7 +82,7 @@ class LocalLibrary internal constructor(
 
     fun layout(id: String) = combine(
         preferences,
-        db.layoutChanges.map { withDb { getBookLayout(id) } }.distinctUntilChanged(),
+        observe(db.layoutChanges) { getBookLayout(id) },
     ) { shared, stored ->
         val mode = stored?.first ?: LayoutMode.GLOBAL
         val active = if (mode == LayoutMode.CUSTOM) stored?.second ?: shared else shared

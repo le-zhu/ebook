@@ -232,28 +232,21 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
     fun submitSearch() = search.start { library.open(id, preloadPositions = false) }
 
     fun readSearchHit(hit: Locator) {
-        val nav = navigator ?: return
-        val origin = nav.currentLocator.value
-        cancelSeek()
-        if (nav.go(hit, false)) {
-            rememberReturnOrigin(origin)
+        if (navigateWithReturn(highlight = hit) { it.go(hit, false) }) {
             dismissPanel(ReaderPanel.SEARCH)
-            state.update { it.copy(canReturnFromSearch = true, searchHighlight = hit, controlsVisible = true) }
         }
     }
 
-    internal fun followInternalLink(link: Link): Boolean {
+    internal fun followInternalLink(link: Link) = navigateWithReturn { it.go(link, false) }
+
+    private inline fun navigateWithReturn(highlight: Locator? = null, navigate: (EpubNavigatorFragment) -> Boolean): Boolean {
         val nav = navigator ?: return false
         val origin = nav.currentLocator.value
         cancelSeek()
-        if (!nav.go(link, false)) return false
-        rememberReturnOrigin(origin)
-        state.update { it.copy(canReturnFromSearch = true, searchHighlight = null, controlsVisible = true) }
-        return true
-    }
-
-    private fun rememberReturnOrigin(origin: Locator) {
+        if (!navigate(nav)) return false
         if (!saved.contains("searchOrigin")) saved["searchOrigin"] = origin.toJSON().toString()
+        state.update { it.copy(canReturnFromSearch = true, searchHighlight = highlight, controlsVisible = true) }
+        return true
     }
 
     fun returnFromSearch() {

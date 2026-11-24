@@ -13,7 +13,7 @@ data class Book(
     val publisher: String,
     val progress: Float,
     val currentChapterIndex: Int,
-    val lastReadTimestamp: Long,
+    val lastReadTimestamp: Long?,
     val importedAt: Long,
     val fileSizeLabel: String,
     val toc: List<TocItem> = emptyList(),
@@ -26,6 +26,8 @@ data class Book(
 
     fun adjacentTarget(current: TocItem?, offset: Int): TocItem? =
         navigationTargets.getOrNull((targetIndices[current?.href] ?: -1) + offset)
+
+    val hasReadingPosition: Boolean get() = lastReadTimestamp != null
 
     val progressPercent: Int
         get() = (progress.coerceIn(0f, 1f) * 100f).toInt()

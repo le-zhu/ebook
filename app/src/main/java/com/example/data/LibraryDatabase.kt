@@ -6,6 +6,8 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.text.format.Formatter
 import androidx.core.content.contentValuesOf
+import androidx.core.database.getLongOrNull
+import androidx.core.database.getStringOrNull
 import androidx.core.database.sqlite.transaction
 import com.example.model.Book
 import com.example.model.Bookmark
@@ -17,8 +19,10 @@ import java.util.UUID
 import org.json.JSONObject
 import org.readium.r2.shared.publication.Locator
 
+// Older shelves recorded import time in last_read_at even before a reading position existed.
 private const val BOOK_COLUMNS =
-    "id, title, author, publisher, has_cover, file_size, progress, current_chapter_index, current_chapter_title, last_read_at, added_at"
+    "id, title, author, publisher, has_cover, file_size, progress, current_chapter_index, current_chapter_title, " +
+        "CASE WHEN locator_json IS NOT NULL THEN last_read_at END, added_at"
 
 internal class LibraryDatabase(
     context: Context,
@@ -115,7 +119,7 @@ internal class LibraryDatabase(
     fun reserveImport(id: String) {
         val now = System.currentTimeMillis()
         writableDatabase.insertOrThrow("books", null, contentValuesOf(
-            "id" to id, "title" to "", "author" to "", "added_at" to now, "last_read_at" to now,
+            "id" to id, "title" to "", "author" to "", "added_at" to now, "last_read_at" to 0L,
             "trash_token" to IMPORTING,
         ))
     }
@@ -271,11 +275,10 @@ internal class LibraryDatabase(
             coverPath = if (getInt(4) != 0) files.cover(id).path else null,
             fileSizeLabel = Formatter.formatShortFileSize(app, getLong(5)),
             progress = getDouble(6).toFloat(), currentChapterIndex = getInt(7),
-            currentChapterTitle = getString(8), lastReadTimestamp = getLong(9), importedAt = getLong(10),
+            currentChapterTitle = getString(8), lastReadTimestamp = getLongOrNull(9), importedAt = getLong(10),
         )
     }
 
-    private fun Cursor.getStringOrNull(index: Int): String? = if (isNull(index)) null else getString(index)
     private fun String.toLocatorOrNull(): Locator? = runCatching { Locator.fromJSON(JSONObject(this)) }.getOrNull()
 
     companion object {

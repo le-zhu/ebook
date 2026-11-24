@@ -79,6 +79,31 @@ class ReaderActionsTest {
         return runBlocking { app.library.import(uri).first.id }
     }
 
+    @Test fun shelfDistinguishesUnreadBooksFromZeroPercentRead() {
+        val unread = importTestBook("尚未打开")
+        val started = importTestBook("刚开始读")
+        val lib = (ui.activity.application as ReaderApplication).library
+        runBlocking {
+            val pub = lib.open(started)
+            try {
+                lib.savePosition(started, 0, "上章", 0.005f, requireNotNull(pub.locateProgression(0.005)))
+            } finally { pub.close() }
+        }
+        for (view in listOf("grid", "list")) {
+            if (view == "list") find("bookshelf_toggle_view_button").performClick()
+            for ((id, label) in listOf(unread to "未读", started to "0%")) {
+                val tag = "book_${view}_card_$id"
+                find(tag)
+                ui.waitUntil(5000) {
+                    ui.onAllNodes(hasText(label) and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true)
+                        .fetchSemanticsNodes().isNotEmpty()
+                }
+            }
+        }
+        find("book_list_card_$started").performTouchInput { longClick() }
+        find("book_detail_read_button").assert(hasText("继续阅读"))
+    }
+
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun longSynopsisScrollsIndependently() = verifySynopsisScrolling()
 
@@ -90,7 +115,7 @@ class ReaderActionsTest {
         find("book_grid_card_$id").performTouchInput { longClick() }
         val viewport = find("book_detail_synopsis_viewport")
         val heading = ui.onNodeWithText("内容简介")
-        val actions = find("book_detail_read_button")
+        val actions = find("book_detail_read_button").assert(hasText("开始阅读"))
         val remove = find("book_detail_remove_button")
         val headingBounds = heading.getUnclippedBoundsInRoot()
         val actionBounds = actions.getUnclippedBoundsInRoot()
@@ -186,11 +211,11 @@ class ReaderActionsTest {
 
     @Test fun pinchChangesOneGridStepAndKeepsBookTapsSeparate() {
         val app = ui.activity.application as ReaderApplication
-        val ids = (1..8).map {
-            val uri = Uri.parse("content://reader.test/grid-$it")
-            val bytes = epub("书架 $it")
+        for (index in 1..8) {
+            val uri = Uri.parse("content://reader.test/grid-$index")
+            val bytes = epub("书架 $index")
             shadowOf(app.contentResolver).registerInputStreamSupplier(uri) { bytes.inputStream() }
-            runBlocking { app.library.import(uri).first.id }
+            runBlocking { app.library.import(uri) }
         }
         val cards = SemanticsMatcher("book covers") {
             it.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { null }
@@ -261,7 +286,7 @@ class ReaderActionsTest {
         pinch(false); expectColumns(3)
         pinch(false); expectColumns(2)
         pinch(false); expectColumns(2)
-        find("book_grid_card_" + ids.last()).performClick()
+        ui.onAllNodes(cards).onFirst().performClick()
         find("reader_top_bar").assertExists()
     }
 

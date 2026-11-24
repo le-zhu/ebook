@@ -14,8 +14,8 @@ android {
     applicationId = "com.aistudio.epubreader.mkyrqt"
     minSdk = 24
     targetSdk = 36
-    versionCode = 42
-    versionName = "1.10.1"
+    versionCode = 43
+    versionName = "1.10.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

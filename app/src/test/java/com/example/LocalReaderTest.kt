@@ -320,18 +320,26 @@ class LocalReaderTest {
         val lib = (context.applicationContext as ReaderApplication).library
         runBlocking {
             LibraryDatabase(context).use { db ->
-                suspend fun seed(added: Long, title: String, author: String, read: Long = 80, progress: Double = 0.0) {
+                suspend fun seed(added: Long, title: String, author: String, read: Long? = null, progress: Float = 0f) {
                     val book = lib.import(document("sort-$added", epub(title, extraText = "版本$added", author = author))).first
+                    if (read != null) {
+                        val pub = lib.open(book.id)
+                        val locator = try { requireNotNull(pub.locateProgression(progress.toDouble())) } finally { pub.close() }
+                        lib.savePosition(book.id, 0, "", progress, locator)
+                    }
+                    // 1.10.1 stored the import time here even for books with no reading position.
                     db.writableDatabase.execSQL(
-                        "UPDATE books SET added_at = ?, last_read_at = ?, progress = ? WHERE id = ?",
-                        arrayOf<Any>(added, read, progress, book.id),
+                        "UPDATE books SET added_at = ?, last_read_at = ? WHERE id = ?",
+                        arrayOf<Any>(added, read ?: added, book.id),
                     )
                 }
                 seed(1, "阿西莫夫", "白居易")
                 seed(2, "阿西莫夫", "周作人")
                 seed(3, "阿西莫夫", "白居易")
-                seed(4, "北京折叠", "白居易", read = 100)
-                seed(5, "中国科幻", "阿城", progress = 0.75)
+                seed(4, "北京折叠", "白居易")
+                seed(5, "中国科幻", "阿城", read = 80, progress = 0.75f)
+                seed(6, "三体", "白居易", read = 80)
+                seed(7, "银河帝国", "白居易", read = 100, progress = 0.5f)
             }
         }
         val vm = BookshelfViewModel(lib)
@@ -344,16 +352,16 @@ class LocalReaderTest {
             while (System.nanoTime() < deadline) {
                 main.idleFor(32, java.util.concurrent.TimeUnit.MILLISECONDS)
                 val current = vm.uiState.value
-                if (current.sortOrder == order && current.books.size == 5) return current.books.map { it.importedAt }
+                if (current.sortOrder == order && current.books.size == 7) return current.books.map { it.importedAt }
                 Thread.sleep(10)
             }
             error("Timed out waiting for sort order $order: ${vm.uiState.value}")
         }
         try {
-            assertEquals(listOf(3L, 2L, 1L, 4L, 5L), awaitOrder(BookshelfSortOrder.TITLE))
-            assertEquals(listOf(5L, 3L, 1L, 4L, 2L), awaitOrder(BookshelfSortOrder.AUTHOR))
-            assertEquals(listOf(4L, 3L, 2L, 1L, 5L), awaitOrder(BookshelfSortOrder.RECENTLY_READ))
-            assertEquals(listOf(5L, 3L, 2L, 1L, 4L), awaitOrder(BookshelfSortOrder.PROGRESS))
+            assertEquals(listOf(3L, 2L, 1L, 4L, 6L, 7L, 5L), awaitOrder(BookshelfSortOrder.TITLE))
+            assertEquals(listOf(5L, 3L, 1L, 4L, 6L, 7L, 2L), awaitOrder(BookshelfSortOrder.AUTHOR))
+            assertEquals(listOf(7L, 6L, 5L, 3L, 2L, 1L, 4L), awaitOrder(BookshelfSortOrder.RECENTLY_READ))
+            assertEquals(listOf(5L, 7L, 3L, 2L, 1L, 4L, 6L), awaitOrder(BookshelfSortOrder.PROGRESS))
         } finally {
             scope.cancel()
         }

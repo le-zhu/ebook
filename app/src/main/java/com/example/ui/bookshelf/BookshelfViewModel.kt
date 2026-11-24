@@ -57,13 +57,7 @@ class BookshelfViewModel(
         id?.let { it to synopsisText(repository.description(it)) }
     }.flowOn(Dispatchers.Default)
 
-    val uiState: StateFlow<BookshelfUiState> = combine(
-        repository.books,
-        sortOrder,
-        viewMode,
-        selectedDetails,
-        repository.gridColumns,
-    ) { books, sort, mode, details, columns ->
+    private val sortedShelf = combine(repository.books, sortOrder) { books, sort ->
         val collator = Collator.getInstance(Locale.CHINA)
         val byTitle = compareBy<Book, String>(collator) { it.title }.thenByDescending { it.importedAt }
         val order = when (sort) {
@@ -72,8 +66,14 @@ class BookshelfViewModel(
             BookshelfSortOrder.PROGRESS -> compareByDescending(Book::progress).then(byTitle)
             BookshelfSortOrder.AUTHOR -> compareBy<Book, String>(collator) { it.author }.then(byTitle)
         }
+        sort to books.sortedWith(order)
+    }
+
+    val uiState: StateFlow<BookshelfUiState> = combine(
+        sortedShelf, viewMode, selectedDetails, repository.gridColumns,
+    ) { (sort, books), mode, details, columns ->
         BookshelfUiState(
-            books = books.sortedWith(order),
+            books = books,
             columns = columns,
             sortOrder = sort,
             viewMode = mode,

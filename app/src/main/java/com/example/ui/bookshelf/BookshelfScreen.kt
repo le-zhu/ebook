@@ -419,8 +419,8 @@ private fun BookListCard(
 private fun BookProgressRow(book: Book, shortLabel: Boolean) {
     val percent = book.progressPercent
     val label = when {
-        percent == 0 -> stringResource(R.string.bookshelf_unread)
-        shortLabel -> "$percent%"
+        !book.hasReadingPosition -> stringResource(R.string.bookshelf_unread)
+        shortLabel || percent == 0 -> "$percent%"
         percent >= 100 -> stringResource(R.string.bookshelf_finished)
         else -> stringResource(R.string.bookshelf_reading_progress, percent)
     }
@@ -544,7 +544,7 @@ private fun BookDetailBottomSheet(
                 )
 
                 EbookActionButton(
-                    label = stringResource(if (book.progressPercent > 0) R.string.book_detail_continue_reading else R.string.book_detail_start_reading),
+                    label = stringResource(if (book.hasReadingPosition) R.string.book_detail_continue_reading else R.string.book_detail_start_reading),
                     icon = Icons.AutoMirrored.Rounded.MenuBook,
                     onClick = onReadClick,
                     modifier = Modifier.testTag("book_detail_read_button"),
