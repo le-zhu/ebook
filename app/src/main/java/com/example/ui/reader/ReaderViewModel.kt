@@ -10,6 +10,7 @@ import com.example.data.LocalLibrary
 import com.example.data.samePlace
 import com.example.data.withContents
 import com.example.model.*
+import com.example.ui.publicationText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -35,6 +36,7 @@ data class ReaderUiState(
     val isCurrentChapterBookmarked: Boolean = false,
     val layoutMode: LayoutMode = LayoutMode.ORIGINAL,
     val panel: ReaderPanel? = null,
+    val footnote: String? = null,
     val canReturnFromSearch: Boolean = false,
     val searchHighlight: Locator? = null,
     val preferences: ReaderPreferences = ReaderPreferences.Default,
@@ -60,6 +62,7 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
     private var landing: Pair<Locator, Float>? = null
     internal val awaitingSeek get() = seekTarget != null
     private var sectionJob: Job? = null
+    private var linkLookup: Job? = null
     private var locations: ReadingLocations? = null
     internal val search = BookSearch(viewModelScope)
 
@@ -99,6 +102,7 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
     internal fun attach(nav: EpubNavigatorFragment) { navigator = nav }
     internal fun detach(nav: EpubNavigatorFragment) {
         if (navigator === nav) {
+            linkLookup?.cancel()
             cancelSeek()
             sectionJob?.cancel()
             library.flushPosition(id)
@@ -237,7 +241,34 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
         }
     }
 
-    internal fun followInternalLink(link: Link) = navigateWithReturn { it.go(link, false) }
+    internal fun followInternalLink(link: Link, noteHtml: String?): Boolean {
+        linkLookup?.cancel()
+        val book = publication ?: return false
+        val nav = navigator ?: return false
+        if (link.url().fragment == null && noteHtml == null) return navigateWithReturn { it.go(link, false) }
+        val origin = nav.currentLocator.value
+        linkLookup = viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                val body = try { book.noteAt(link) }
+                catch (cancel: CancellationException) { throw cancel }
+                catch (_: Exception) { null }
+                body ?: noteHtml?.let(::publicationText)
+            }
+            linkLookup = null
+            if (navigator !== nav || !samePlace(origin, nav.currentLocator.value)) return@launch
+            if (!text.isNullOrBlank()) showFootnote(text) else navigateWithReturn { it.go(link, false) }
+        }
+        return true
+    }
+
+    internal fun showFootnote(text: String) {
+        if (text.isNotBlank()) viewModelScope.launch {
+            linkLookup?.cancel()
+            state.update { it.copy(footnote = text) }
+        }
+    }
+
+    fun dismissFootnote() { state.update { it.copy(footnote = null) } }
 
     private inline fun navigateWithReturn(highlight: Locator? = null, navigate: (EpubNavigatorFragment) -> Boolean): Boolean {
         val nav = navigator ?: return false

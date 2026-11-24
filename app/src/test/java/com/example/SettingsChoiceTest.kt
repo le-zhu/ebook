@@ -227,6 +227,17 @@ class SettingsChoiceTest {
         )
     }
 
+    @Test fun readerTitleAlignsWithToolbarButtonsAndChapterAppearsOnlyBelow() {
+        ui.setContent { TestReaderChrome(resolveReaderPalette(ReaderTheme.SYSTEM, false), Color.White) }
+        val title = ui.onNode(hasText("书") and hasAnyAncestor(hasTestTag("reader_top_bar")))
+        val centerY = title.fetchSemanticsNode().boundsInRoot.center.y
+        for (tag in listOf("reader_back_button", "reader_search", "reader_bookmark_toggle")) {
+            assertEquals(tag, centerY, ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.center.y, 1f)
+        }
+        ui.onAllNodesWithText("章").assertCountEquals(1)
+        ui.onNodeWithText("章").assert(hasAnyAncestor(hasTestTag("reader_bottom_capsule")))
+    }
+
     @Test @Config(qualifiers = "w411dp-h891dp")
     fun noticeFollowsTheExitingToolbarUntilTheToolbarClearsTheScreen() {
         val visible = mutableStateOf(true)

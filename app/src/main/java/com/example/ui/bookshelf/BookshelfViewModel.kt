@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.LocalLibrary
 import com.example.model.Book
+import com.example.ui.publicationText
 import java.text.Collator
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +55,7 @@ class BookshelfViewModel(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val selectedDetails = selectedBookId.mapLatest { id ->
-        id?.let { it to synopsisText(repository.description(it)) }
+        id?.let { it to publicationText(repository.description(it)) }
     }.flowOn(Dispatchers.Default)
 
     private val sortedShelf = combine(repository.books, sortOrder) { books, sort ->

@@ -36,6 +36,7 @@
     <string name="reader_prev_chapter">上一个目录项</string>
     <string name="reader_next_chapter">下一个目录项</string>
     <string name="reader_settings_button">排版设置</string>
+    <string name="reader_footnote">注</string>
     <string name="reader_bookmark_added">已添加当前章节书签</string>
     <string name="reader_bookmark_removed">已移除当前章节书签</string>
     <string name="reader_first_chapter_hint">没有上一个目录项</string>

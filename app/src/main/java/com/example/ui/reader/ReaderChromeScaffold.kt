@@ -152,26 +152,14 @@ fun ReaderChromeScaffold(
                             )
                         }
 
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 6.dp),
-                        ) {
-                            Text(
-                                text = bookTitle,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = animatedChromeText,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (chapterTitle.isNotBlank()) Text(
-                                text = chapterTitle,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = controls.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                        Text(
+                            text = bookTitle,
+                            modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = animatedChromeText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
 
                         IconButton(onClick = onOpenSearch, modifier = Modifier.testTag("reader_search")) {
                             Icon(Icons.Rounded.Search, contentDescription = "全书搜索", tint = animatedChromeText)

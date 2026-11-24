@@ -3,7 +3,9 @@ package com.example.ui.reader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -14,13 +16,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.example.ui.EbookBottomSheet
 import com.example.ui.EbookTextButton
+import com.example.ui.SheetFixedContent
+import com.example.ui.SheetScrollBody
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.ui.BookmarkNotice
+import com.example.ui.theme.ListSheetHeightFraction
 import com.example.ui.theme.ReaderColorPalette
 import com.example.ui.theme.SystemBarsAppearanceEffect
 import com.example.ui.theme.appColorScheme
@@ -53,7 +64,7 @@ fun ReaderScreen(
     val panel = uiState.panel
     SystemBarsAppearanceEffect(
         isDarkBackground = palette.isDark,
-        hideSystemBars = !uiState.controlsVisible && panel == null,
+        hideSystemBars = !uiState.controlsVisible && panel == null && uiState.footnote == null,
     )
 
     val book = uiState.book
@@ -91,7 +102,7 @@ fun ReaderScreen(
         }
     }
 
-    BackHandler(enabled = uiState.canReturnFromSearch && panel == null) {
+    BackHandler(enabled = uiState.canReturnFromSearch && panel == null && uiState.footnote == null) {
         viewModel.returnFromSearch()
     }
     val readingColors = if (palette.isDark == isSystemDark) colorScheme else appColorScheme(palette.isDark)
@@ -135,6 +146,10 @@ fun ReaderScreen(
             modifier = modifier,
         )
 
+        uiState.footnote?.let {
+            FootnoteSheet(it, viewModel::dismissFootnote)
+            return@MaterialTheme
+        }
         if (panel == null) return@MaterialTheme
         val dismiss = { viewModel.dismissPanel(panel) }
         when (panel) {
@@ -171,6 +186,22 @@ fun ReaderScreen(
                     showQuickMessage(R.string.reader_bookmark_removed)
                 },
             )
+        }
+    }
+}
+
+@Composable
+private fun FootnoteSheet(note: String, onDismiss: () -> Unit) {
+    EbookBottomSheet(onDismiss, Modifier.testTag("footnote_sheet")) {
+        BoxWithConstraints {
+            Column(Modifier.heightIn(max = maxHeight * ListSheetHeightFraction)) {
+                SheetFixedContent {
+                    Text(stringResource(R.string.reader_footnote), Modifier.padding(bottom = 12.dp), style = MaterialTheme.typography.titleLarge)
+                }
+                SheetScrollBody(PaddingValues(vertical = 12.dp)) {
+                    Text(note, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
 }

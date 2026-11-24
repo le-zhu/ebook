@@ -1,10 +1,10 @@
-package com.example.ui.bookshelf
+package com.example.ui
 
 import org.jsoup.Jsoup
 import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
 
-internal fun synopsisText(source: String): String {
+internal fun publicationText(source: String): String {
     if ('<' !in source) return Parser.unescapeEntities(source, false).trim()
     val body = Jsoup.parseBodyFragment(source).body()
     if (body.childrenSize() == 0) return body.wholeText().trim()

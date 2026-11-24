@@ -3,6 +3,7 @@
 package com.example.ui.reader
 
 import android.view.View
+import android.webkit.JavascriptInterface
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -39,6 +40,10 @@ import kotlin.coroutines.resume
 // Register once so the stylesheet also reaches preloaded chapters.
 private interface ReaderDocumentStyle : Decoration.Style
 
+private class InlineFootnotes(private val show: (String) -> Unit) {
+    @JavascriptInterface fun showNote(text: String) = show(text)
+}
+
 @Composable
 internal fun EpubContent(
     activity: FragmentActivity,
@@ -49,9 +54,10 @@ internal fun EpubContent(
 ) {
     val publication = model.publication ?: return
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val configuration = remember(activity) {
+    val configuration = remember(activity, model) {
         val css = activity.resources.openRawResource(R.raw.reader_document).bufferedReader().use { it.readText() }
         EpubNavigatorFragment.Configuration().apply {
+            registerJavascriptInterface("EbookFootnotes") { InlineFootnotes(model::showFootnote) }
             decorationTemplates[ReaderDocumentStyle::class] =
                 HtmlDecorationTemplate(layout = HtmlDecorationTemplate.Layout.BOUNDS, stylesheet = css)
         }
@@ -76,6 +82,10 @@ internal fun EpubContent(
     val latestSettings by rememberUpdatedState(settings)
     var container by remember { mutableStateOf<FragmentContainerView?>(null) }
     var navigator by remember { mutableStateOf<EpubNavigatorFragment?>(null) }
+    var pageLoad by remember(publication) { mutableIntStateOf(0) }
+    val noteGestures = remember(activity) {
+        activity.resources.openRawResource(R.raw.footnote_gestures).bufferedReader().use { it.readText() }
+    }
     AndroidView(
         modifier = modifier.background(palette.background)
             .pointerInput(model) {
@@ -104,11 +114,13 @@ internal fun EpubContent(
                     override fun shouldFollowInternalLink(
                         link: Link,
                         context: HyperlinkNavigator.LinkContext?,
-                    ): Boolean = !model.followInternalLink(link)
+                    ): Boolean = !model.followInternalLink(link, (context as? HyperlinkNavigator.FootnoteContext)?.noteContent)
 
                     override fun onExternalLinkActivated(url: AbsoluteUrl) {}
                 },
                 paginationListener = object : EpubNavigatorFragment.PaginationListener {
+                    override fun onPageLoaded() { pageLoad++ }
+
                     override fun onPageChanged(pageIndex: Int, totalPages: Int, locator: org.readium.r2.shared.publication.Locator) {
                         if (model.awaitingSeek) model.moved(locator, totalPages)
                     }
@@ -138,6 +150,9 @@ internal fun EpubContent(
             navigator = null
             if (!manager.isDestroyed && nav.isAdded) manager.beginTransaction().remove(nav).commitNowAllowingStateLoss()
         }
+    }
+    LaunchedEffect(navigator, pageLoad, state.currentChapterIndex) {
+        navigator?.evaluateJavascript(noteGestures)
     }
     LaunchedEffect(navigator, state.searchHighlight) {
         val decorations = state.searchHighlight?.let {

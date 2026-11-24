@@ -16,11 +16,30 @@
 
 /* Keep inline note icons within a superscript character, including when the
    reading system overrides the EPUB's numeric img width with width: auto. */
-:root body img.epub-footnote,
 :root body a[epub\:type~="noteref"] img,
 :root body a[*|type~="noteref"] img,
 :root body a[role~="doc-noteref"] img {
     max-width: 0.9em !important;
     max-height: 0.9em !important;
     object-fit: contain;
+}
+
+/* A note marker is a button-like link, including when the publisher uses an image. */
+:root body :is(a[epub\:type~="noteref"], a[*|type~="noteref"], a[role~="doc-noteref"]),
+:root body :is(a[epub\:type~="noteref"], a[*|type~="noteref"], a[role~="doc-noteref"]) *,
+:root body button.ebook-inline-footnote {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+:root body button.ebook-inline-footnote {
+    display: inline;
+    padding: 0 0.15em;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.75em;
+    vertical-align: super;
 }

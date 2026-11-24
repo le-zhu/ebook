@@ -21,6 +21,8 @@ import android.content.res.Configuration
 import androidx.viewpager.widget.ViewPager
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebView
+import androidx.core.view.descendants
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.example.model.LayoutMode
@@ -71,10 +73,10 @@ class ReaderActionsTest {
         return null
     }
 
-    private fun importTestBook(title: String, description: String? = null): String {
+    private fun importTestBook(title: String, description: String? = null, extraText: String = ""): String {
         val app = ui.activity.application as ReaderApplication
         val uri = Uri.parse("content://reader.test/example.epub")
-        val bytes = epub(title, description = description)
+        val bytes = epub(title, description = description, extraText = extraText)
         shadowOf(app.contentResolver).registerInputStreamSupplier(uri) { bytes.inputStream() }
         return runBlocking { app.library.import(uri).first.id }
     }
@@ -733,8 +735,78 @@ class ReaderActionsTest {
     }
 
     @OptIn(org.readium.r2.shared.ExperimentalReadiumApi::class)
+    @Test fun footnotesShowTheirTextWithoutLeavingThePage() {
+        val ref = """<a epub:type="noteref" href="b.xhtml#test-note"><img alt="注" src="note.png"/></a>"""
+        val note = """<span epub:type="footnote"><i id="test-note">跨章节</i><b>注释</b> &amp; 说明。</span>"""
+        val endnote = """<span xmlns:ops="http://www.idpf.org/2007/ops" ops:type="endnote"><i id="tail">尾注</i>正文。</span>"""
+        val id = importTestBook("脚注测试", extraText = ref + note + endnote)
+        find("book_grid_card_$id").performClick()
+        fun fragment() = ui.activity.supportFragmentManager.fragments.filterIsInstance<EpubNavigatorFragment>().firstOrNull()
+        fun web() = (fragment()?.view as? ViewGroup)?.descendants?.filterIsInstance<WebView>()?.firstOrNull()
+        ui.waitUntil(10000) { ui.runOnIdle { web() != null && fragment()?.view?.findPager()?.currentItem == 0 } }
+        fun sheetHeight(tag: String) = find(tag).getUnclippedBoundsInRoot().run { bottom - top }
+        fun measurePanel(button: String, sheet: String): androidx.compose.ui.unit.Dp {
+            find(button).performClick()
+            val height = sheetHeight(sheet)
+            ui.onNodeWithContentDescription("关闭面板").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+            ui.waitUntil(5000) { ui.onAllNodesWithTag(sheet).fetchSemanticsNodes().isEmpty() }
+            return height
+        }
+        val maxHeight = measurePanel("reader_capsule_toc_button", "toc_sheet")
+        assertEquals(maxHeight, measurePanel("reader_search", "search_sheet"))
+        val webView = ui.runOnIdle { requireNotNull(web()) }
+        val tap = org.json.JSONObject().put("x", 12).put("y", 12).put("interactiveElement", ref).toString()
+        val consumed = runBlocking(Dispatchers.IO) {
+            webView.javaClass.getMethod("onTap", String::class.java).invoke(webView, tap)
+        }
+        assertEquals(true, consumed)
+        fun checkNote(text: String, scroll: Boolean = false) {
+            ui.waitUntil(10000) { ui.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+            ui.onNodeWithText(text).assertIsDisplayed()
+            val heading = ui.onNodeWithText("注").assertIsDisplayed()
+            val divider = find("sheet_section_divider").assertIsDisplayed()
+            val height = sheetHeight("footnote_sheet")
+            val body = ui.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange) and hasAnyAncestor(isDialog()))
+            if (scroll) {
+                assertEquals(maxHeight, height)
+                val top = heading.getUnclippedBoundsInRoot()
+                val line = divider.getUnclippedBoundsInRoot()
+                body.performTouchInput { swipeUp() }
+                assertTrue(body.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value() > 0f)
+                assertEquals(top, heading.getUnclippedBoundsInRoot())
+                assertEquals(line, divider.getUnclippedBoundsInRoot())
+                ui.runOnIdle {
+                    val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog() as androidx.activity.ComponentDialog
+                    dialog.onBackPressedDispatcher.onBackPressed()
+                }
+            } else {
+                assertTrue(height < maxHeight)
+                assertEquals(0f, body.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].maxValue(), 0f)
+                ui.onNodeWithContentDescription("关闭面板").performClick()
+            }
+            ui.waitUntil(5000) { ui.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty() }
+            ui.onNodeWithTag("return_from_search").assertDoesNotExist()
+            assertEquals(0, ui.runOnIdle { fragment()?.view?.findPager()?.currentItem })
+        }
+        checkNote("跨章节注释 & 说明。")
+        ui.runOnIdle {
+            val nav = requireNotNull(fragment())
+            val listener = EpubNavigatorFragment::class.java.getMethod("getListener\$readium_navigator")
+                .invoke(nav) as EpubNavigatorFragment.Listener
+            val link = org.readium.r2.shared.publication.Link(href = org.readium.r2.shared.publication.Href("b.xhtml#tail")!!)
+            assertFalse(listener.shouldFollowInternalLink(link, null))
+        }
+        checkNote("尾注正文。")
+        val inline = ui.runOnIdle { requireNotNull(shadowOf(webView).getJavascriptInterface("EbookFootnotes")) }
+        val show = inline.javaClass.getMethod("showNote", String::class.java).apply { isAccessible = true }
+        val longNote = (1..80).joinToString("\n") { "由原书提供的行内注释，第 ${it} 行。" }
+        runBlocking(Dispatchers.IO) { show.invoke(inline, longNote) }
+        checkNote(longNote, scroll = true)
+    }
+
+    @OptIn(org.readium.r2.shared.ExperimentalReadiumApi::class)
     @Test fun internalLinkJumpShowsReturnBarAndReturnsToOrigin() {
-        val id = importTestBook("引用跳转")
+        val id = importTestBook("引用跳转", extraText = """<a id="back" href="a.xhtml#ref">*</a>普通说明。<a id="ref" href="b.xhtml#back"><sup>*</sup></a>""")
         find("book_grid_card_$id").performClick()
         fun nav() = ui.activity.supportFragmentManager.fragments
             .filterIsInstance<EpubNavigatorFragment>()
@@ -743,7 +815,7 @@ class ReaderActionsTest {
         ui.waitUntil(10000) { chapter() == 0 }
 
         val targetLink = org.readium.r2.shared.publication.Link(
-            href = org.readium.r2.shared.publication.Href("b.xhtml#section")!!,
+            href = org.readium.r2.shared.publication.Href("b.xhtml#back")!!,
         )
         fun triggerLink() = ui.runOnIdle {
             val fragment = requireNotNull(nav())
