@@ -64,20 +64,16 @@ class BookshelfViewModel(
         selectedDetails,
         repository.gridColumns,
     ) { books, sort, mode, details, columns ->
-        val sorted = when (sort) {
-            BookshelfSortOrder.RECENTLY_READ -> books.sortedByDescending { it.lastReadTimestamp }
-            BookshelfSortOrder.TITLE -> {
-                val collator = Collator.getInstance(Locale.CHINA)
-                books.sortedWith(compareBy<Book, String>(collator) { it.title }.thenBy(collator) { it.author })
-            }
-            BookshelfSortOrder.PROGRESS -> books.sortedByDescending { it.progress }
-            BookshelfSortOrder.AUTHOR -> {
-                val collator = Collator.getInstance(Locale.CHINA)
-                books.sortedWith(compareBy<Book, String>(collator) { it.author }.thenBy(collator) { it.title })
-            }
+        val collator = Collator.getInstance(Locale.CHINA)
+        val byTitle = compareBy<Book, String>(collator) { it.title }.thenByDescending { it.importedAt }
+        val order = when (sort) {
+            BookshelfSortOrder.RECENTLY_READ -> compareByDescending(Book::lastReadTimestamp).then(byTitle)
+            BookshelfSortOrder.TITLE -> byTitle
+            BookshelfSortOrder.PROGRESS -> compareByDescending(Book::progress).then(byTitle)
+            BookshelfSortOrder.AUTHOR -> compareBy<Book, String>(collator) { it.author }.then(byTitle)
         }
         BookshelfUiState(
-            books = sorted,
+            books = books.sortedWith(order),
             columns = columns,
             sortOrder = sort,
             viewMode = mode,

@@ -385,8 +385,8 @@ class ReaderActionsTest {
 
         val dark = ui.activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         val system = if (dark) dynamicDarkColorScheme(ui.activity) else dynamicLightColorScheme(ui.activity)
-        val panel = if (dark) system.surfaceContainerHigh.toArgb() else Color.White.toArgb()
-        val gray = system.surfaceContainer.toArgb()
+        val panel = (if (dark) system.surfaceContainerHigh else system.surfaceContainer).toArgb()
+        val canvas = (if (dark) Color.Black else Color.White).toArgb()
         find("book_grid_card_" + book.id)
         val track = ui.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo),
             useUnmergedTree = true).captureToImage().toPixelMap()
@@ -436,7 +436,7 @@ class ReaderActionsTest {
             val shelfTop = find("bookshelf_$mode").fetchSemanticsNode().boundsInRoot.top
             assertTrue("compact header above $mode", shelfTop - titleBounds.center.y in 0f..sortBounds.height)
             val shelf = find("bookshelf_$mode").captureToImage().toPixelMap()
-            assertEquals(gray, shelf[1, shelf.height / 2].toArgb())
+            assertEquals(canvas, shelf[1, shelf.height / 2].toArgb())
             assertEquals(panel, fill(card, 0.99f))
             val inCard = hasAnyAncestor(hasTestTag(card))
             val progress = ui.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)
@@ -510,7 +510,7 @@ class ReaderActionsTest {
         assertEquals(accentFill, chapter[2].first)
         find("reader_settings_button").performClick()
         assertEquals(panel, fill("settings_sheet", 0.015f, 0.025f))
-        assertEquals(gray, fill("layout_ORIGINAL", 0.18f))
+        assertEquals(canvas, fill("layout_ORIGINAL", 0.18f))
         assertEquals(accentFill, fill("layout_GLOBAL", 0.18f))
         assertEquals(settingsMetrics, actionMetrics("layout_GLOBAL"))
         find("line_height_slider").performScrollTo()

@@ -14,6 +14,7 @@ data class Book(
     val progress: Float,
     val currentChapterIndex: Int,
     val lastReadTimestamp: Long,
+    val importedAt: Long,
     val fileSizeLabel: String,
     val toc: List<TocItem> = emptyList(),
     val coverPath: String? = null,

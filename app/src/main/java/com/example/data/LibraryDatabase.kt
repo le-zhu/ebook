@@ -18,7 +18,7 @@ import org.json.JSONObject
 import org.readium.r2.shared.publication.Locator
 
 private const val BOOK_COLUMNS =
-    "id, title, author, publisher, has_cover, file_size, progress, current_chapter_index, current_chapter_title, last_read_at"
+    "id, title, author, publisher, has_cover, file_size, progress, current_chapter_index, current_chapter_title, last_read_at, added_at"
 
 internal class LibraryDatabase(
     context: Context,
@@ -271,7 +271,7 @@ internal class LibraryDatabase(
             coverPath = if (getInt(4) != 0) files.cover(id).path else null,
             fileSizeLabel = Formatter.formatShortFileSize(app, getLong(5)),
             progress = getDouble(6).toFloat(), currentChapterIndex = getInt(7),
-            currentChapterTitle = getString(8), lastReadTimestamp = getLong(9),
+            currentChapterTitle = getString(8), lastReadTimestamp = getLong(9), importedAt = getLong(10),
         )
     }
 

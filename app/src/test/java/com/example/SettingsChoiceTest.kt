@@ -68,6 +68,34 @@ class SettingsChoiceTest {
         assertEquals(resolveReaderPalette(ReaderTheme.AMOLED_BLACK, isSystemDark = true), dark)
     }
 
+    @Test fun chromeGraysStayDistinctFromCanvasAndReadingPaperThemes() {
+        val warmPaper = resolveReaderPalette(ReaderTheme.WARM_PAPER, isSystemDark = false).background
+        val softGray = resolveReaderPalette(ReaderTheme.SOFT_GRAY, isSystemDark = true).background
+        lateinit var lightStatic: ColorScheme
+        lateinit var darkStatic: ColorScheme
+        lateinit var lightDynamic: ColorScheme
+        lateinit var darkDynamic: ColorScheme
+        ui.setContent {
+            EpubReaderTheme(darkTheme = false, dynamicColor = false) { lightStatic = MaterialTheme.colorScheme }
+            EpubReaderTheme(darkTheme = true, dynamicColor = false) { darkStatic = MaterialTheme.colorScheme }
+            EpubReaderTheme(darkTheme = false, dynamicColor = true) { lightDynamic = MaterialTheme.colorScheme }
+            EpubReaderTheme(darkTheme = true, dynamicColor = true) { darkDynamic = MaterialTheme.colorScheme }
+        }
+        ui.waitForIdle()
+        for (scheme in listOf(lightStatic, lightDynamic)) {
+            assertEquals(Color.White, scheme.surfaceContainer)
+            assertEquals(Color.White, scheme.background)
+            assertNotEquals(Color.White, scheme.surface)
+            assertNotEquals(warmPaper, scheme.surface)
+        }
+        for (scheme in listOf(darkStatic, darkDynamic)) {
+            assertEquals(Color.Black, scheme.surfaceContainer)
+            assertEquals(Color.Black, scheme.background)
+            assertNotEquals(Color.Black, scheme.surface)
+            assertNotEquals(softGray, scheme.surface)
+        }
+    }
+
     @Test @Config(qualifiers = "w411dp-h891dp-notnight")
     fun lightOptionsUseTheCurrentColorScheme() {
         verifyChoices()

@@ -11,6 +11,8 @@ import com.example.data.LibraryDatabase
 import com.example.data.withContents
 import com.example.model.LayoutMode
 import com.example.model.TocItem
+import com.example.ui.bookshelf.BookshelfSortOrder
+import com.example.ui.bookshelf.BookshelfViewModel
 import com.example.ui.reader.TocLocation
 import com.example.ui.reader.searchPages
 import com.example.ui.reader.contextBefore
@@ -314,38 +316,44 @@ class LocalReaderTest {
         }
     }
 
-    @Test fun chineseTitlesAndAuthorsSortByPinyinOrder() {
+    @Test fun shelfSortsByPrimaryKeyThenPinyinTitleThenNewestImport() {
         val lib = (context.applicationContext as ReaderApplication).library
-        // Unicode order would be 北(5317) < 中(4E2D) < 阿(963F); Chinese collation orders 阿(a) < 北(bei) < 中(zhong).
         runBlocking {
-            lib.import(document("z", epub("中国科幻", author = "周作人")))
-            lib.import(document("b", epub("北京折叠", author = "白居易")))
-            lib.import(document("a", epub("阿西莫夫", author = "阿城")))
+            LibraryDatabase(context).use { db ->
+                suspend fun seed(added: Long, title: String, author: String, read: Long = 80, progress: Double = 0.0) {
+                    val book = lib.import(document("sort-$added", epub(title, extraText = "版本$added", author = author))).first
+                    db.writableDatabase.execSQL(
+                        "UPDATE books SET added_at = ?, last_read_at = ?, progress = ? WHERE id = ?",
+                        arrayOf<Any>(added, read, progress, book.id),
+                    )
+                }
+                seed(1, "阿西莫夫", "白居易")
+                seed(2, "阿西莫夫", "周作人")
+                seed(3, "阿西莫夫", "白居易")
+                seed(4, "北京折叠", "白居易", read = 100)
+                seed(5, "中国科幻", "阿城", progress = 0.75)
+            }
         }
-        val vm = com.example.ui.bookshelf.BookshelfViewModel(lib)
+        val vm = BookshelfViewModel(lib)
         val main = shadowOf(android.os.Looper.getMainLooper())
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         scope.launch { vm.uiState.collect {} }
-        fun awaitOrder(order: com.example.ui.bookshelf.BookshelfSortOrder): com.example.ui.bookshelf.BookshelfUiState {
+        fun awaitOrder(order: BookshelfSortOrder): List<Long> {
             vm.setSortOrder(order)
             val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10)
             while (System.nanoTime() < deadline) {
                 main.idleFor(32, java.util.concurrent.TimeUnit.MILLISECONDS)
                 val current = vm.uiState.value
-                if (current.sortOrder == order && current.books.size == 3) return current
+                if (current.sortOrder == order && current.books.size == 5) return current.books.map { it.importedAt }
                 Thread.sleep(10)
             }
             error("Timed out waiting for sort order $order: ${vm.uiState.value}")
         }
         try {
-            assertEquals(
-                listOf("阿西莫夫", "北京折叠", "中国科幻"),
-                awaitOrder(com.example.ui.bookshelf.BookshelfSortOrder.TITLE).books.map { it.title },
-            )
-            assertEquals(
-                listOf("阿城", "白居易", "周作人"),
-                awaitOrder(com.example.ui.bookshelf.BookshelfSortOrder.AUTHOR).books.map { it.author },
-            )
+            assertEquals(listOf(3L, 2L, 1L, 4L, 5L), awaitOrder(BookshelfSortOrder.TITLE))
+            assertEquals(listOf(5L, 3L, 1L, 4L, 2L), awaitOrder(BookshelfSortOrder.AUTHOR))
+            assertEquals(listOf(4L, 3L, 2L, 1L, 5L), awaitOrder(BookshelfSortOrder.RECENTLY_READ))
+            assertEquals(listOf(5L, 3L, 2L, 1L, 4L), awaitOrder(BookshelfSortOrder.PROGRESS))
         } finally {
             scope.cancel()
         }

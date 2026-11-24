@@ -112,13 +112,17 @@ internal fun appColorScheme(darkTheme: Boolean, dynamicColor: Boolean = true): C
             darkTheme -> DarkColorScheme
             else -> LightColorScheme
         }
-        // Raised panels sit on the neutral surfaceContainer used for the shelf and inactive choices.
+        // Raised panels (toolbars, sheets, cards) use neutral gray on pure white/black canvases.
         val accent = if (darkTheme) scheme.secondaryContainer else lerp(scheme.secondaryContainer, scheme.primary, 0.16f)
         val lab = accent.convert(ColorSpaces.Oklab)
         // Both container roles resolve to the same wallpaper-adaptive fill.
         val fill = lab.copy(green = lab.green * 1.6f, blue = lab.blue * 1.6f).convert(accent.colorSpace)
+        val panelSurface = if (darkTheme) scheme.surfaceContainerHigh else scheme.surfaceContainer
+        val canvasSurface = if (darkTheme) Color.Black else Color.White
         scheme.copy(
-            surface = if (darkTheme) scheme.surfaceContainerHigh else Color.White,
+            surface = panelSurface,
+            surfaceContainer = canvasSurface,
+            background = canvasSurface,
             secondary = scheme.primary,
             onSecondary = scheme.onPrimary,
             primaryContainer = fill,
