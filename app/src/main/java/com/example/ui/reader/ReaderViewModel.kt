@@ -101,6 +101,7 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
         if (navigator === nav) {
             cancelSeek()
             sectionJob?.cancel()
+            library.flushPosition(id)
             navigator = null
         }
     }
@@ -228,17 +229,31 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
         return page?.explicit(hit)?.title ?: hit.title?.takeIf { it.isNotBlank() } ?: page?.chapter?.title.orEmpty()
     }
 
-    fun submitSearch() = search.start { library.open(id) }
+    fun submitSearch() = search.start { library.open(id, preloadPositions = false) }
 
     fun readSearchHit(hit: Locator) {
         val nav = navigator ?: return
         val origin = nav.currentLocator.value
         cancelSeek()
         if (nav.go(hit, false)) {
-            if (!saved.contains("searchOrigin")) saved["searchOrigin"] = origin.toJSON().toString()
+            rememberReturnOrigin(origin)
             dismissPanel(ReaderPanel.SEARCH)
             state.update { it.copy(canReturnFromSearch = true, searchHighlight = hit, controlsVisible = true) }
         }
+    }
+
+    internal fun followInternalLink(link: Link): Boolean {
+        val nav = navigator ?: return false
+        val origin = nav.currentLocator.value
+        cancelSeek()
+        if (!nav.go(link, false)) return false
+        rememberReturnOrigin(origin)
+        state.update { it.copy(canReturnFromSearch = true, searchHighlight = null, controlsVisible = true) }
+        return true
+    }
+
+    private fun rememberReturnOrigin(origin: Locator) {
+        if (!saved.contains("searchOrigin")) saved["searchOrigin"] = origin.toJSON().toString()
     }
 
     fun returnFromSearch() {
@@ -262,7 +277,10 @@ class ReaderViewModel(private val id: String, private val library: LocalLibrary,
     fun setLayoutMode(mode: LayoutMode) { viewModelScope.launch { library.setLayoutMode(id, mode) } }
     fun resetPreferences() { viewModelScope.launch { library.editLayout(id, reset = true) { it } } }
 
-    override fun onCleared() { publication?.close() }
+    override fun onCleared() {
+        library.flushPosition(id)
+        publication?.close()
+    }
 
     companion object {
         fun provideFactory(bookId: String, repository: LocalLibrary) = object : ViewModelProvider.Factory {

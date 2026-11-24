@@ -6,6 +6,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.LocalLibrary
 import com.example.model.Book
+import java.text.Collator
+import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +39,7 @@ data class BookshelfUiState(
     val viewMode: BookshelfViewMode = BookshelfViewMode.GRID,
     val columns: Int = 2,
     val selectedBookForSheet: Book? = null,
+    val synopsis: String = "",
 )
 
 class BookshelfViewModel(
@@ -45,25 +52,37 @@ class BookshelfViewModel(
     private val viewMode = repository.listLayout.map { if (it) BookshelfViewMode.LIST else BookshelfViewMode.GRID }
     private val selectedBookId = MutableStateFlow<String?>(null)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val selectedDetails = selectedBookId.mapLatest { id ->
+        id?.let { it to synopsisText(repository.description(it)) }
+    }.flowOn(Dispatchers.Default)
+
     val uiState: StateFlow<BookshelfUiState> = combine(
         repository.books,
         sortOrder,
         viewMode,
-        selectedBookId,
+        selectedDetails,
         repository.gridColumns,
-    ) { books, sort, mode, activeSheetBookId, columns ->
+    ) { books, sort, mode, details, columns ->
         val sorted = when (sort) {
             BookshelfSortOrder.RECENTLY_READ -> books.sortedByDescending { it.lastReadTimestamp }
-            BookshelfSortOrder.TITLE -> books.sortedBy { it.title }
+            BookshelfSortOrder.TITLE -> {
+                val collator = Collator.getInstance(Locale.CHINA)
+                books.sortedWith(compareBy<Book, String>(collator) { it.title }.thenBy(collator) { it.author })
+            }
             BookshelfSortOrder.PROGRESS -> books.sortedByDescending { it.progress }
-            BookshelfSortOrder.AUTHOR -> books.sortedBy { it.author }
+            BookshelfSortOrder.AUTHOR -> {
+                val collator = Collator.getInstance(Locale.CHINA)
+                books.sortedWith(compareBy<Book, String>(collator) { it.author }.thenBy(collator) { it.title })
+            }
         }
         BookshelfUiState(
             books = sorted,
             columns = columns,
             sortOrder = sort,
             viewMode = mode,
-            selectedBookForSheet = books.find { it.id == activeSheetBookId },
+            selectedBookForSheet = details?.let { (id, _) -> books.find { it.id == id } },
+            synopsis = details?.second.orEmpty(),
         )
     }.stateIn(
         scope = viewModelScope,

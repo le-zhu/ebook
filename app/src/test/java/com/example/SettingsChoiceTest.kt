@@ -58,6 +58,16 @@ class SettingsChoiceTest {
         }
     }
 
+    @Test fun systemThemeUsesPureWhiteAndPureBlackWithoutDynamicColor() {
+        val light = resolveReaderPalette(ReaderTheme.SYSTEM, isSystemDark = false)
+        assertEquals(Color(0xFFFFFFFF), light.background)
+        assertEquals(resolveReaderPalette(ReaderTheme.PURE_WHITE, isSystemDark = false), light)
+
+        val dark = resolveReaderPalette(ReaderTheme.SYSTEM, isSystemDark = true)
+        assertEquals(Color(0xFF000000), dark.background)
+        assertEquals(resolveReaderPalette(ReaderTheme.AMOLED_BLACK, isSystemDark = true), dark)
+    }
+
     @Test @Config(qualifiers = "w411dp-h891dp-notnight")
     fun lightOptionsUseTheCurrentColorScheme() {
         verifyChoices()
@@ -144,7 +154,7 @@ class SettingsChoiceTest {
         ui.setContent {
             EpubReaderTheme(darkTheme = theme.value == ReaderTheme.AMOLED_BLACK) {
                 val scheme = MaterialTheme.colorScheme
-                val palette = resolveReaderPalette(theme.value, isSystemInDarkTheme(), scheme)
+                val palette = resolveReaderPalette(theme.value, isSystemInDarkTheme())
                 SideEffect { controls = scheme }
                 TestReaderChrome(palette, page.value)
             }
@@ -194,7 +204,7 @@ class SettingsChoiceTest {
         val visible = mutableStateOf(true)
         val notices = SnackbarHostState()
         ui.setContent {
-            val palette = resolveReaderPalette(ReaderTheme.SYSTEM, false, MaterialTheme.colorScheme)
+            val palette = resolveReaderPalette(ReaderTheme.SYSTEM, false)
             TestReaderChrome(palette, Color.White, visible.value, notices)
             LaunchedEffect(Unit) { notices.showSnackbar("通知", duration = SnackbarDuration.Indefinite) }
         }

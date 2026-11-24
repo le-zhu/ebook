@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +38,13 @@ import com.example.ui.theme.ReaderBodySerifFont
 
 private val fallbackCoverBrush = Brush.linearGradient(listOf(Color(0xff254a4a), Color(0xff16363b)))
 private val fallbackAccent = Color(0xffcdbb84)
+
+private val coverCache = object : LruCache<String, ImageBitmap>(
+    (Runtime.getRuntime().maxMemory() / 1024 / 12).toInt().coerceIn(8 * 1024, 32 * 1024),
+) {
+    override fun sizeOf(key: String, value: ImageBitmap): Int =
+        ((value.width.toLong() * value.height * 4) / 1024L).toInt().coerceAtLeast(1)
+}
 
 @Composable
 fun BookCoverArtwork(
@@ -62,8 +71,20 @@ fun BookCoverArtwork(
                 )
             },
     ) {
-        val bitmap = produceState<ImageBitmap?>(null, book.coverPath) {
-            value = book.coverPath?.let { withContext(Dispatchers.IO) { BitmapFactory.decodeFile(it)?.asImageBitmap() } }
+        val cached = remember(book.coverPath) { book.coverPath?.let(coverCache::get) }
+        val bitmap = produceState(cached, book.coverPath) {
+            val path = book.coverPath
+            if (path == null) {
+                value = null
+                return@produceState
+            }
+            coverCache.get(path)?.let {
+                value = it
+                return@produceState
+            }
+            value = withContext(Dispatchers.IO) {
+                BitmapFactory.decodeFile(path)?.asImageBitmap()?.also { coverCache.put(path, it) }
+            }
         }.value
         if (bitmap != null) {
             Image(

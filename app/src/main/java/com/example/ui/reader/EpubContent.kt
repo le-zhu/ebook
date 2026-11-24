@@ -25,12 +25,15 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import com.example.R
 import org.readium.r2.navigator.html.HtmlDecorationTemplate
 import org.readium.r2.navigator.Decoration
+import org.readium.r2.navigator.HyperlinkNavigator
 import org.readium.r2.navigator.epub.*
 import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.navigator.preferences.Color
 import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.navigator.preferences.Theme
+import org.readium.r2.shared.publication.Link
+import org.readium.r2.shared.util.AbsoluteUrl
 import kotlin.coroutines.resume
 
 // Register once so the stylesheet also reaches preloaded chapters.
@@ -97,6 +100,14 @@ internal fun EpubContent(
             val factory = EpubNavigatorFactory(publication).createFragmentFactory(
                 initialLocator = model.locator, initialPreferences = latestSettings,
                 configuration = configuration,
+                listener = object : EpubNavigatorFragment.Listener {
+                    override fun shouldFollowInternalLink(
+                        link: Link,
+                        context: HyperlinkNavigator.LinkContext?,
+                    ): Boolean = !model.followInternalLink(link)
+
+                    override fun onExternalLinkActivated(url: AbsoluteUrl) {}
+                },
                 paginationListener = object : EpubNavigatorFragment.PaginationListener {
                     override fun onPageChanged(pageIndex: Int, totalPages: Int, locator: org.readium.r2.shared.publication.Locator) {
                         if (model.awaitingSeek) model.moved(locator, totalPages)

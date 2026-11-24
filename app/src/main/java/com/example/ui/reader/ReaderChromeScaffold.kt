@@ -202,7 +202,7 @@ fun ReaderChromeScaffold(
                             EbookTextButton("返回原阅读位置", onReturnFromSearch, Modifier.testTag("return_from_search"))
                             Spacer(Modifier.weight(1f))
                             IconButton(onClick = onStayAtSearchResult, modifier = Modifier.testTag("stay_at_search_result")) {
-                                Icon(Icons.Rounded.Close, contentDescription = "留在当前位置并清除高亮")
+                                Icon(Icons.Rounded.Close, contentDescription = "留在当前位置")
                             }
                         }
                     }

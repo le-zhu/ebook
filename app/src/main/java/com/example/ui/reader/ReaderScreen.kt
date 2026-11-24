@@ -46,8 +46,8 @@ fun ReaderScreen(
 
     val isSystemDark = isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
-    val palette = remember(uiState.preferences.theme, isSystemDark, colorScheme) {
-        resolveReaderPalette(uiState.preferences.theme, isSystemDark, colorScheme)
+    val palette = remember(uiState.preferences.theme, isSystemDark) {
+        resolveReaderPalette(uiState.preferences.theme, isSystemDark)
     }
 
     val panel = uiState.panel
@@ -141,7 +141,6 @@ fun ReaderScreen(
             ReaderPanel.SETTINGS -> TypographySettingsSheet(
                 preferences = uiState.preferences,
                 mode = uiState.layoutMode,
-                systemColors = colorScheme,
                 onModeChange = viewModel::setLayoutMode,
                 onDismiss = dismiss,
                 onThemeSelected = viewModel::setReaderTheme,

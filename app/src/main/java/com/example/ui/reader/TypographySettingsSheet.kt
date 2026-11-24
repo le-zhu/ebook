@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.ViewDay
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -84,7 +83,6 @@ fun TypographySettingsSheet(
     onLineHeightChange: (Float) -> Unit,
     onHorizontalMarginChange: (Float) -> Unit,
     onResetClick: () -> Unit,
-    systemColors: ColorScheme = MaterialTheme.colorScheme,
 ) {
     val isSystemDark = isSystemInDarkTheme()
 
@@ -154,7 +152,7 @@ fun TypographySettingsSheet(
 
             EqualButtonGroup {
                 themeItems.forEach { (theme, labelRes) ->
-                    val previewPalette = resolveReaderPalette(theme, isSystemDark, systemColors)
+                    val previewPalette = resolveReaderPalette(theme, isSystemDark)
                     val selected = preferences.theme == theme
 
                     ThemeColorSwatch(

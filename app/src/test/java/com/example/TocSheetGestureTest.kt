@@ -59,7 +59,7 @@ class TocSheetGestureTest {
 
     private fun open(count: Int = 100) {
         val toc = (0 until count).map { TocItem("toc.$it", "标题 $it", it) }
-        val book = Book("id", "书名", "作者", "", "", 0f, 0, 0L, "", toc = toc)
+        val book = Book("id", "书名", "作者", "", 0f, 0, 0L, "", toc = toc)
         val marks = toc.mapIndexed { i, item -> Bookmark("b$i", book.id, i, item.title, i, "", "") }
         ui.setContent {
             var shown by remember { mutableStateOf(true) }

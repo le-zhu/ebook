@@ -11,7 +11,6 @@ data class Book(
     val title: String,
     val author: String,
     val publisher: String,
-    val description: String,
     val progress: Float,
     val currentChapterIndex: Int,
     val lastReadTimestamp: Long,

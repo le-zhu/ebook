@@ -4,7 +4,7 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-internal fun epub(title: String, extraText: String = "", withFrontMatter: Boolean = false, rtl: Boolean = false, description: String? = null): ByteArray {
+internal fun epub(title: String, extraText: String = "", withFrontMatter: Boolean = false, rtl: Boolean = false, description: String? = null, author: String = "作者甲"): ByteArray {
     val bytes = ByteArrayOutputStream()
     ZipOutputStream(bytes).use { zip ->
         fun file(path: String, text: String) {
@@ -24,7 +24,7 @@ internal fun epub(title: String, extraText: String = "", withFrontMatter: Boolea
         val direction = if (rtl) " page-progression-direction=\"rtl\"" else ""
         val synopsis = description?.let { "<dc:description>${android.text.TextUtils.htmlEncode(it)}</dc:description>" }.orEmpty()
         file("book.opf", """<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">
-            <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">fixture</dc:identifier><dc:title>$title</dc:title><dc:creator>作者甲</dc:creator><dc:language>zh</dc:language>$synopsis</metadata>
+            <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">fixture</dc:identifier><dc:title>$title</dc:title><dc:creator>$author</dc:creator><dc:language>zh</dc:language>$synopsis</metadata>
             <manifest>$prefaceItem<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/></manifest><spine$direction>$frontSpine<itemref idref="a"/><itemref idref="b"/></spine></package>""")
         val subsections = if (withFrontMatter) """<ol><li><a href="b.xhtml#detail">细目</a></li></ol>""" else ""
         file("nav.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>目录</title></head><body><nav epub:type="toc"><ol>$frontNav<li><a href="a.xhtml">上章</a></li><li><a href="b.xhtml">下章</a><ol><li><a href="b.xhtml#section">小节</a>$subsections</li></ol></li></ol></nav></body></html>""")

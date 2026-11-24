@@ -706,4 +706,40 @@ class ReaderActionsTest {
             reader.detach(nav)
         }
     }
+
+    @OptIn(org.readium.r2.shared.ExperimentalReadiumApi::class)
+    @Test fun internalLinkJumpShowsReturnBarAndReturnsToOrigin() {
+        val id = importTestBook("引用跳转")
+        find("book_grid_card_$id").performClick()
+        fun nav() = ui.activity.supportFragmentManager.fragments
+            .filterIsInstance<EpubNavigatorFragment>()
+            .firstOrNull { it.view != null }
+        fun chapter() = ui.runOnIdle { nav()?.view?.findPager()?.currentItem }
+        ui.waitUntil(10000) { chapter() == 0 }
+
+        val targetLink = org.readium.r2.shared.publication.Link(
+            href = org.readium.r2.shared.publication.Href("b.xhtml#section")!!,
+        )
+        fun triggerLink() = ui.runOnIdle {
+            val fragment = requireNotNull(nav())
+            val listener = EpubNavigatorFragment::class.java
+                .getMethod("getListener\$readium_navigator")
+                .invoke(fragment) as EpubNavigatorFragment.Listener
+            assertFalse(listener.shouldFollowInternalLink(targetLink, null))
+        }
+        triggerLink()
+        find("return_from_search").assertExists()
+        ui.waitUntil(10000) { chapter() == 1 }
+
+        find("return_from_search").performClick()
+        ui.waitUntil(10000) { chapter() == 0 }
+        ui.onNodeWithTag("return_from_search").assertDoesNotExist()
+
+        triggerLink()
+        ui.waitUntil(10000) { chapter() == 1 }
+        find("stay_at_search_result").performClick()
+        ui.waitForIdle()
+        assertEquals(1, chapter())
+        ui.onNodeWithTag("return_from_search").assertDoesNotExist()
+    }
 }

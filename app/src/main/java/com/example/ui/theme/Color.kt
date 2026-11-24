@@ -1,6 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import com.example.model.ReaderTheme
@@ -19,12 +18,10 @@ data class ReaderColorPalette(
 fun resolveReaderPalette(
     theme: ReaderTheme,
     isSystemDark: Boolean,
-    scheme: ColorScheme,
 ): ReaderColorPalette = when (theme) {
-    ReaderTheme.SYSTEM -> ReaderColorPalette(
-        background = scheme.background,
-        contentText = scheme.onBackground,
-        isDark = isSystemDark,
+    ReaderTheme.SYSTEM -> resolveReaderPalette(
+        if (isSystemDark) ReaderTheme.AMOLED_BLACK else ReaderTheme.PURE_WHITE,
+        isSystemDark,
     )
     ReaderTheme.PURE_WHITE -> ReaderColorPalette(
         background = Color(0xFFFFFFFF),

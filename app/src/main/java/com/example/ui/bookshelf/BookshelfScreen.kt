@@ -261,6 +261,7 @@ fun BookshelfScreen(
     uiState.selectedBookForSheet?.let { selectedBook ->
         BookDetailBottomSheet(
             book = selectedBook,
+            synopsis = uiState.synopsis,
             onDismiss = { viewModel.dismissBookDetailSheet() },
             onReadClick = {
                 viewModel.dismissBookDetailSheet()
@@ -498,6 +499,7 @@ private fun SortDropdownMenu(
 @Composable
 private fun BookDetailBottomSheet(
     book: Book,
+    synopsis: String,
     onDismiss: () -> Unit,
     onReadClick: () -> Unit,
     onRemoveClick: () -> Unit,
@@ -516,7 +518,6 @@ private fun BookDetailBottomSheet(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                val synopsis = remember(book.description) { synopsisText(book.description) }
                 SheetScrollBody(
                     contentPadding = PaddingValues(vertical = 12.dp),
                     modifier = Modifier.heightIn(max = sectionLimit).testTag("book_detail_synopsis_viewport"),
